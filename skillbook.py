@@ -429,7 +429,7 @@ def print_profile(results):
 # ═══════════════════════════════════════════════
 
 if __name__ == "__main__":
-    # CLI: python skillbok.py username
+    # CLI: python skillbook.py username
     if len(sys.argv) > 1:
         USERNAME = sys.argv[1]
 
@@ -443,6 +443,7 @@ if __name__ == "__main__":
     print(f"Первые 10: {repos[:10]}")
     print()
 
+    os.makedirs("output", exist_ok=True)
     results = collect_commits(g, USERNAME, repos, SINCE_DATE)
-    save_to_csv(results)
+    save_to_csv(results, "output/skills_v3.csv")
     print_profile(results)
