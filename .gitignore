@@ -1,0 +1,18 @@
+
+.env
+
+
+skills.csv
+skills_v3.csv
+profile.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
