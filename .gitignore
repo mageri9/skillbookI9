@@ -1,7 +1,8 @@
 
 .env
 
-
+cache/
+output/
 skills.csv
 skills_v3.csv
 profile.json
