@@ -1,0 +1,763 @@
+{
+  "technologies": {
+    "python": {
+      "name": "Python",
+      "category": "language",
+      "ecosystem": "python",
+      "complexity": 1.0,
+      "market_value": 1.0,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.4,
+      "market_relevance": "high",
+      "description": "General-purpose programming language",
+      "detection": {
+        "paths": ["*.py"],
+        "imports": [],
+        "patterns": [],
+        "dependencies": []
+      },
+      "related": ["fastapi", "django", "flask", "pytest", "pydantic", "asyncio"]
+    },
+
+    "fastapi": {
+      "name": "FastAPI",
+      "category": "backend",
+      "ecosystem": "python-async",
+      "complexity": 1.4,
+      "market_value": 1.4,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "Modern async Python web framework",
+      "detection": {
+        "paths": ["**/routes/**", "**/api/**"],
+        "imports": ["fastapi"],
+        "patterns": ["FastAPI\\(", "@app\\.", "APIRouter", "@router\\.", "@router\\.get", "@router\\.post"],
+        "dependencies": ["fastapi", "uvicorn"]
+      },
+      "related": ["pydantic", "uvicorn", "starlette", "asyncio", "httpx", "sqlalchemy"]
+    },
+
+    "django": {
+      "name": "Django",
+      "category": "backend",
+      "ecosystem": "python-sync",
+      "complexity": 1.3,
+      "market_value": 1.3,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "Full-stack Python web framework",
+      "detection": {
+        "paths": ["**/urls.py", "**/wsgi.py", "**/asgi.py", "**/settings.py"],
+        "imports": ["django"],
+        "patterns": ["from django\\.", "urlpatterns", "path\\(", "re_path\\(", "class \\w+\\(Model\\)", "models\\.Model"],
+        "dependencies": ["django", "djangorestframework"]
+      },
+      "related": ["django-rest-framework", "postgresql", "redis", "celery", "pytest-django"]
+    },
+
+    "flask": {
+      "name": "Flask",
+      "category": "backend",
+      "ecosystem": "python-sync",
+      "complexity": 0.9,
+      "market_value": 0.8,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Lightweight Python web framework",
+      "detection": {
+        "paths": [],
+        "imports": ["flask"],
+        "patterns": ["from flask import", "Flask\\(", "@app\\.route"],
+        "dependencies": ["flask"]
+      },
+      "related": ["jinja2", "sqlalchemy", "pytest-flask"]
+    },
+
+    "aiohttp": {
+      "name": "aiohttp",
+      "category": "backend",
+      "ecosystem": "python-async",
+      "complexity": 1.1,
+      "market_value": 0.9,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Async HTTP client/server for Python",
+      "detection": {
+        "paths": [],
+        "imports": ["aiohttp"],
+        "patterns": ["from aiohttp import", "aiohttp\\.web", "aiohttp\\.ClientSession"],
+        "dependencies": ["aiohttp"]
+      },
+      "related": ["asyncio", "pytest-aiohttp"]
+    },
+
+    "asyncio": {
+      "name": "asyncio",
+      "category": "language",
+      "ecosystem": "python-async",
+      "complexity": 1.2,
+      "market_value": 1.1,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.5,
+      "market_relevance": "high",
+      "description": "Python async/await runtime",
+      "detection": {
+        "paths": [],
+        "imports": ["asyncio"],
+        "patterns": ["async def ", "await ", "asyncio\\.create_task", "asyncio\\.gather", "asyncio\\.run"],
+        "dependencies": []
+      },
+      "related": ["fastapi", "aiohttp", "httpx", "asyncpg"]
+    },
+
+    "sqlalchemy": {
+      "name": "SQLAlchemy",
+      "category": "database",
+      "ecosystem": "python-data",
+      "complexity": 1.4,
+      "market_value": 1.3,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.2,
+      "market_relevance": "high",
+      "description": "Python SQL toolkit and ORM",
+      "detection": {
+        "paths": ["**/models/**", "**/migrations/**"],
+        "imports": ["sqlalchemy"],
+        "patterns": ["from sqlalchemy", "class \\w+\\(Base\\)", "session\\.query", "session\\.add", "session\\.commit", "Column\\(", "ForeignKey\\(", "declarative_base", "Mapped\\["],
+        "dependencies": ["sqlalchemy", "alembic"]
+      },
+      "related": ["alembic", "postgresql", "asyncpg", "psycopg2"]
+    },
+
+    "alembic": {
+      "name": "Alembic",
+      "category": "database",
+      "ecosystem": "python-data",
+      "complexity": 1.0,
+      "market_value": 1.0,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.2,
+      "market_relevance": "medium",
+      "description": "Database migration tool for SQLAlchemy",
+      "detection": {
+        "paths": ["**/migrations/**", "**/alembic/**"],
+        "imports": ["alembic"],
+        "patterns": ["revision =", "down_revision =", "upgrade\\(\\)", "downgrade\\(\\)"],
+        "dependencies": ["alembic"]
+      },
+      "related": ["sqlalchemy", "postgresql"]
+    },
+
+    "pydantic": {
+      "name": "Pydantic",
+      "category": "backend",
+      "ecosystem": "python",
+      "complexity": 0.9,
+      "market_value": 1.2,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "Data validation using Python type hints",
+      "detection": {
+        "paths": ["**/schemas/**", "**/models/**"],
+        "imports": ["pydantic"],
+        "patterns": ["from pydantic", "BaseModel", "Field\\(", "model_validate", "model_dump"],
+        "dependencies": ["pydantic"]
+      },
+      "related": ["fastapi", "sqlalchemy"]
+    },
+
+    "pytest": {
+      "name": "pytest",
+      "category": "testing",
+      "ecosystem": "python",
+      "complexity": 0.8,
+      "market_value": 1.2,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.1,
+      "market_relevance": "high",
+      "description": "Python testing framework",
+      "detection": {
+        "paths": ["**/tests/**", "**/test/**", "**/conftest.py"],
+        "imports": ["pytest"],
+        "patterns": ["import pytest", "from pytest", "def test_", "class Test\\w+", "@pytest\\.mark", "@pytest\\.fixture", "pytest\\.raises"],
+        "dependencies": ["pytest"]
+      },
+      "related": ["pytest-asyncio", "pytest-cov", "factory-boy"]
+    },
+
+    "unittest": {
+      "name": "unittest",
+      "category": "testing",
+      "ecosystem": "python",
+      "complexity": 0.5,
+      "market_value": 0.7,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.1,
+      "market_relevance": "medium",
+      "description": "Python standard testing library",
+      "detection": {
+        "paths": ["**/tests/**", "**/test/**"],
+        "imports": ["unittest"],
+        "patterns": ["import unittest", "from unittest", "TestCase", "unittest\\.main", "unittest\\.TestCase"],
+        "dependencies": []
+      },
+      "related": ["pytest"]
+    },
+
+    "redis": {
+      "name": "Redis",
+      "category": "database",
+      "ecosystem": "infrastructure",
+      "complexity": 1.0,
+      "market_value": 1.2,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.1,
+      "market_relevance": "high",
+      "description": "In-memory data store",
+      "detection": {
+        "paths": [],
+        "imports": ["redis"],
+        "patterns": ["redis\\.", "Redis\\(", "from redis", "redis\\.asyncio", "aioredis"],
+        "dependencies": ["redis", "aioredis"]
+      },
+      "related": ["celery", "fastapi", "django"]
+    },
+
+    "postgresql": {
+      "name": "PostgreSQL",
+      "category": "database",
+      "ecosystem": "infrastructure",
+      "complexity": 1.0,
+      "market_value": 1.2,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.1,
+      "market_relevance": "high",
+      "description": "Relational database",
+      "detection": {
+        "paths": ["*.sql"],
+        "imports": ["psycopg2", "asyncpg", "psycopg"],
+        "patterns": ["psycopg2", "asyncpg", "psycopg", "postgresql://", "postgres://"],
+        "dependencies": ["psycopg2", "asyncpg", "psycopg2-binary"]
+      },
+      "related": ["sqlalchemy", "alembic", "django"]
+    },
+
+    "asyncpg": {
+      "name": "asyncpg",
+      "category": "database",
+      "ecosystem": "python-async",
+      "complexity": 1.1,
+      "market_value": 1.0,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.1,
+      "market_relevance": "medium",
+      "description": "Fast async PostgreSQL driver",
+      "detection": {
+        "paths": [],
+        "imports": ["asyncpg"],
+        "patterns": ["asyncpg\\.", "asyncpg\\.connect", "asyncpg\\.create_pool", "from asyncpg"],
+        "dependencies": ["asyncpg"]
+      },
+      "related": ["postgresql", "sqlalchemy", "asyncio"]
+    },
+
+    "mongodb": {
+      "name": "MongoDB",
+      "category": "database",
+      "ecosystem": "infrastructure",
+      "complexity": 0.9,
+      "market_value": 0.8,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.1,
+      "market_relevance": "medium",
+      "description": "NoSQL document database",
+      "detection": {
+        "paths": [],
+        "imports": ["pymongo", "motor"],
+        "patterns": ["pymongo", "motor\\.", "MongoClient", "mongodb://"],
+        "dependencies": ["pymongo", "motor"]
+      },
+      "related": ["beanie", "odmantic"]
+    },
+
+    "elasticsearch": {
+      "name": "Elasticsearch",
+      "category": "database",
+      "ecosystem": "infrastructure",
+      "complexity": 1.3,
+      "market_value": 1.1,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.1,
+      "market_relevance": "high",
+      "description": "Search and analytics engine",
+      "detection": {
+        "paths": [],
+        "imports": ["elasticsearch"],
+        "patterns": ["elasticsearch", "Elasticsearch\\(", "from elasticsearch", "es\\.search", "es\\.index"],
+        "dependencies": ["elasticsearch"]
+      },
+      "related": ["kibana", "logstash", "fastapi"]
+    },
+
+    "celery": {
+      "name": "Celery",
+      "category": "backend",
+      "ecosystem": "python",
+      "complexity": 1.2,
+      "market_value": 1.0,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Distributed task queue",
+      "detection": {
+        "paths": ["**/tasks/**", "**/celery.py"],
+        "imports": ["celery"],
+        "patterns": ["@task", "@shared_task", "celery\\.", "Celery\\(", "@app\\.task"],
+        "dependencies": ["celery"]
+      },
+      "related": ["redis", "rabbitmq", "django", "fastapi"]
+    },
+
+    "docker": {
+      "name": "Docker",
+      "category": "devops",
+      "ecosystem": "infrastructure",
+      "complexity": 0.8,
+      "market_value": 1.2,
+      "signal_confidence": 1.0,
+      "language_multiplier": 0.9,
+      "market_relevance": "high",
+      "description": "Container platform",
+      "detection": {
+        "paths": ["Dockerfile", "docker-compose*.yml", "docker-compose*.yaml", ".dockerignore"],
+        "imports": [],
+        "patterns": ["FROM ", "docker build", "docker run", "docker-compose", "docker\\.compose"],
+        "dependencies": []
+      },
+      "related": ["docker-compose", "kubernetes", "github-actions"]
+    },
+
+    "kubernetes": {
+      "name": "Kubernetes",
+      "category": "devops",
+      "ecosystem": "infrastructure",
+      "complexity": 1.6,
+      "market_value": 1.5,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.9,
+      "market_relevance": "high",
+      "description": "Container orchestration",
+      "detection": {
+        "paths": ["*.k8s.yaml", "*.k8s.yml", "**/k8s/**", "**/kubernetes/**"],
+        "imports": [],
+        "patterns": ["apiVersion:\\s*(apps/v1|v1|batch/v1|networking\\.k8s\\.io)", "kind:\\s*(Deployment|Service|Ingress|Pod|ConfigMap|Secret|StatefulSet)", "kubectl", "helm install"],
+        "dependencies": []
+      },
+      "related": ["docker", "helm", "terraform", "nginx"]
+    },
+
+    "terraform": {
+      "name": "Terraform",
+      "category": "devops",
+      "ecosystem": "infrastructure",
+      "complexity": 1.4,
+      "market_value": 1.4,
+      "signal_confidence": 1.0,
+      "language_multiplier": 0.9,
+      "market_relevance": "high",
+      "description": "Infrastructure as code",
+      "detection": {
+        "paths": ["*.tf", "*.tfvars"],
+        "imports": [],
+        "patterns": ["terraform \\{", "provider \"", "resource \"", "module \"", "variable \""],
+        "dependencies": []
+      },
+      "related": ["aws", "kubernetes", "docker"]
+    },
+
+    "github-actions": {
+      "name": "GitHub Actions",
+      "category": "devops",
+      "ecosystem": "infrastructure",
+      "complexity": 0.7,
+      "market_value": 1.1,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.9,
+      "market_relevance": "high",
+      "description": "CI/CD platform",
+      "detection": {
+        "paths": [".github/workflows/*.yml", ".github/workflows/*.yaml"],
+        "imports": [],
+        "patterns": ["actions/", "runs-on:", "steps:", "uses: actions/"],
+        "dependencies": []
+      },
+      "related": ["docker", "pytest"]
+    },
+
+    "nginx": {
+      "name": "Nginx",
+      "category": "devops",
+      "ecosystem": "infrastructure",
+      "complexity": 0.8,
+      "market_value": 1.0,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.9,
+      "market_relevance": "high",
+      "description": "Web server and reverse proxy",
+      "detection": {
+        "paths": ["**/nginx.conf", "**/nginx/**", "**/*.nginx.conf"],
+        "imports": [],
+        "patterns": ["nginx", "proxy_pass", "upstream ", "server_name ", "listen 80", "listen 443"],
+        "dependencies": []
+      },
+      "related": ["docker", "kubernetes", "fastapi"]
+    },
+
+    "react": {
+      "name": "React",
+      "category": "frontend",
+      "ecosystem": "javascript",
+      "complexity": 1.1,
+      "market_value": 1.3,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "JavaScript UI library",
+      "detection": {
+        "paths": ["*.tsx", "*.jsx"],
+        "imports": ["react"],
+        "patterns": ["from 'react'", "from \"react\"", "useState", "useEffect", "useCallback", "useMemo", "React\\.", "ReactDOM", "<[A-Z]\\w+", "className="],
+        "dependencies": ["react", "react-dom"]
+      },
+      "related": ["nextjs", "typescript", "tailwind"]
+    },
+
+    "nextjs": {
+      "name": "Next.js",
+      "category": "frontend",
+      "ecosystem": "javascript",
+      "complexity": 1.2,
+      "market_value": 1.4,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "React framework",
+      "detection": {
+        "paths": ["**/pages/**", "**/app/**"],
+        "imports": ["next"],
+        "patterns": ["from 'next'", "getServerSideProps", "getStaticProps", "next/router", "next/link", "next\\.js", "use client", "use server"],
+        "dependencies": ["next"]
+      },
+      "related": ["react", "typescript", "tailwind"]
+    },
+
+    "typescript": {
+      "name": "TypeScript",
+      "category": "language",
+      "ecosystem": "javascript",
+      "complexity": 1.0,
+      "market_value": 1.3,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.4,
+      "market_relevance": "high",
+      "description": "Typed JavaScript",
+      "detection": {
+        "paths": ["*.ts", "*.tsx", "tsconfig.json"],
+        "imports": [],
+        "patterns": ["interface \\w+", "type \\w+ =", ": string", ": number", ": boolean", ": void", "as const"],
+        "dependencies": ["typescript"]
+      },
+      "related": ["react", "nextjs", "nodejs"]
+    },
+
+    "javascript": {
+      "name": "JavaScript",
+      "category": "language",
+      "ecosystem": "javascript",
+      "complexity": 1.0,
+      "market_value": 1.0,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.4,
+      "market_relevance": "high",
+      "description": "Dynamic programming language",
+      "detection": {
+        "paths": ["*.js", "*.jsx"],
+        "imports": [],
+        "patterns": [],
+        "dependencies": []
+      },
+      "related": ["react", "nodejs", "typescript"]
+    },
+
+    "nodejs": {
+      "name": "Node.js",
+      "category": "backend",
+      "ecosystem": "javascript",
+      "complexity": 1.0,
+      "market_value": 1.2,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "JavaScript runtime",
+      "detection": {
+        "paths": ["package.json"],
+        "imports": [],
+        "patterns": ["require\\(", "module\\.exports", "process\\.env", "process\\.argv", "fs\\.", "path\\.join"],
+        "dependencies": []
+      },
+      "related": ["express", "typescript", "npm"]
+    },
+
+    "go": {
+      "name": "Go",
+      "category": "language",
+      "ecosystem": "go",
+      "complexity": 1.1,
+      "market_value": 1.3,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.4,
+      "market_relevance": "high",
+      "description": "Systems programming language",
+      "detection": {
+        "paths": ["*.go", "go.mod", "go.sum"],
+        "imports": [],
+        "patterns": ["package main", "func main\\(\\)", "func \\w+\\(.*\\) \\{", "go func\\("],
+        "dependencies": []
+      },
+      "related": ["docker", "kubernetes", "grpc"]
+    },
+
+    "rust": {
+      "name": "Rust",
+      "category": "language",
+      "ecosystem": "rust",
+      "complexity": 1.5,
+      "market_value": 1.2,
+      "signal_confidence": 0.9,
+      "language_multiplier": 0.4,
+      "market_relevance": "medium",
+      "description": "Systems programming language",
+      "detection": {
+        "paths": ["*.rs", "Cargo.toml", "Cargo.lock"],
+        "imports": [],
+        "patterns": ["fn main", "^use\\s+[\\w:]+", "impl ", "struct ", "enum ", "let mut"],
+        "dependencies": []
+      },
+      "related": ["wasm"]
+    },
+
+    "grpc": {
+      "name": "gRPC",
+      "category": "backend",
+      "ecosystem": "infrastructure",
+      "complexity": 1.4,
+      "market_value": 1.3,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "High-performance RPC framework",
+      "detection": {
+        "paths": ["*.proto", "**/protos/**", "**/proto/**"],
+        "imports": ["grpc"],
+        "patterns": ["grpc\\.", "grpc\\.insecure_channel", "grpc\\.server", "protobuf", "_pb2", "servicer", "stub"],
+        "dependencies": ["grpcio", "grpcio-tools"]
+      },
+      "related": ["protobuf", "kubernetes", "go"]
+    },
+
+    "graphql": {
+      "name": "GraphQL",
+      "category": "backend",
+      "ecosystem": "web",
+      "complexity": 1.2,
+      "market_value": 1.1,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Query language for APIs",
+      "detection": {
+        "paths": ["*.graphql", "*.gql", "**/schema/**"],
+        "imports": ["graphql", "graphene", "strawberry"],
+        "patterns": ["graphql", "graphene", "strawberry", "type Query", "type Mutation", "Schema\\(", "ObjectType"],
+        "dependencies": ["graphene", "strawberry-graphql"]
+      },
+      "related": ["fastapi", "django", "react"]
+    },
+
+    "websockets": {
+      "name": "WebSockets",
+      "category": "backend",
+      "ecosystem": "web",
+      "complexity": 1.1,
+      "market_value": 1.0,
+      "signal_confidence": 0.8,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Real-time communication protocol",
+      "detection": {
+        "paths": [],
+        "imports": ["websockets", "websocket"],
+        "patterns": ["websockets\\.", "WebSocket\\(", "ws://", "wss://", "@app\\.websocket", "@router\\.websocket"],
+        "dependencies": ["websockets"]
+      },
+      "related": ["fastapi", "asyncio", "redis"]
+    },
+
+    "aiogram": {
+      "name": "aiogram",
+      "category": "backend",
+      "ecosystem": "python-async",
+      "complexity": 1.0,
+      "market_value": 0.9,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Async Telegram Bot framework",
+      "detection": {
+        "paths": ["**/bot/**", "**/handlers/**"],
+        "imports": ["aiogram"],
+        "patterns": ["from aiogram", "Dispatcher\\(", "Bot\\(", "@dp\\.", "@router\\.message", "types\\.Message", "FSMContext", "State\\("],
+        "dependencies": ["aiogram"]
+      },
+      "related": ["fastapi", "asyncio", "redis"]
+    },
+
+    "selenium": {
+      "name": "Selenium",
+      "category": "testing",
+      "ecosystem": "python",
+      "complexity": 1.0,
+      "market_value": 0.9,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Browser automation",
+      "detection": {
+        "paths": [],
+        "imports": ["selenium"],
+        "patterns": ["from selenium", "webdriver", "WebDriver", "Chrome\\(", "Firefox\\(", "find_element"],
+        "dependencies": ["selenium"]
+      },
+      "related": ["pytest", "playwright"]
+    },
+
+    "aws": {
+      "name": "AWS",
+      "category": "devops",
+      "ecosystem": "cloud",
+      "complexity": 1.5,
+      "market_value": 1.5,
+      "signal_confidence": 0.8,
+      "language_multiplier": 0.9,
+      "market_relevance": "high",
+      "description": "Amazon Web Services",
+      "detection": {
+        "paths": ["**/aws/**", "**/.aws/**"],
+        "imports": ["boto3", "botocore"],
+        "patterns": ["boto3\\.", "boto3\\.client", "boto3\\.resource", "aws_access_key", "aws_secret", "s3://", "arn:aws:", "AWS_"],
+        "dependencies": ["boto3", "botocore"]
+      },
+      "related": ["terraform", "docker", "kubernetes"]
+    },
+
+    "pandas": {
+      "name": "Pandas",
+      "category": "data",
+      "ecosystem": "python-data",
+      "complexity": 0.9,
+      "market_value": 1.2,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "Data analysis library",
+      "detection": {
+        "paths": ["**/notebooks/**"],
+        "imports": ["pandas"],
+        "patterns": ["import pandas", "from pandas", "pd\\.", "DataFrame\\(", "read_csv\\(", "read_sql\\("],
+        "dependencies": ["pandas"]
+      },
+      "related": ["numpy", "matplotlib", "jupyter"]
+    },
+
+    "numpy": {
+      "name": "NumPy",
+      "category": "data",
+      "ecosystem": "python-data",
+      "complexity": 0.8,
+      "market_value": 1.1,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "Numerical computing library",
+      "detection": {
+        "paths": [],
+        "imports": ["numpy"],
+        "patterns": ["import numpy", "from numpy", "np\\.", "np\\.array", "np\\.zeros", "np\\.ones"],
+        "dependencies": ["numpy"]
+      },
+      "related": ["pandas", "scipy", "matplotlib"]
+    },
+
+    "matplotlib": {
+      "name": "Matplotlib",
+      "category": "data",
+      "ecosystem": "python-data",
+      "complexity": 0.7,
+      "market_value": 1.0,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Data visualization library",
+      "detection": {
+        "paths": [],
+        "imports": ["matplotlib"],
+        "patterns": ["import matplotlib", "from matplotlib", "plt\\.", "plt\\.plot", "plt\\.figure"],
+        "dependencies": ["matplotlib"]
+      },
+      "related": ["pandas", "numpy", "seaborn"]
+    },
+
+    "kafka": {
+      "name": "Apache Kafka",
+      "category": "backend",
+      "ecosystem": "infrastructure",
+      "complexity": 1.5,
+      "market_value": 1.4,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "high",
+      "description": "Distributed event streaming",
+      "detection": {
+        "paths": [],
+        "imports": ["kafka", "confluent_kafka", "aiokafka"],
+        "patterns": ["KafkaConsumer", "KafkaProducer", "aiokafka", "confluent_kafka", "kafka-python"],
+        "dependencies": ["kafka-python", "aiokafka", "confluent-kafka"]
+      },
+      "related": ["fastapi", "docker", "kubernetes"]
+    },
+
+    "rabbitmq": {
+      "name": "RabbitMQ",
+      "category": "backend",
+      "ecosystem": "infrastructure",
+      "complexity": 1.1,
+      "market_value": 1.0,
+      "signal_confidence": 0.9,
+      "language_multiplier": 1.0,
+      "market_relevance": "medium",
+      "description": "Message broker",
+      "detection": {
+        "paths": [],
+        "imports": ["pika", "aio_pika"],
+        "patterns": ["pika\\.", "aio_pika", "rabbitmq", "amqp://"],
+        "dependencies": ["pika", "aio-pika"]
+      },
+      "related": ["celery", "fastapi"]
+    }
+  }
+}
