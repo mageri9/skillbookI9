@@ -25,52 +25,6 @@ if not TOKEN:
     raise ValueError("GITHUB_TOKEN not found in .env")
 
 
-# ═══════════════════════════════════════════════
-# ТАКСОНОМИЯ НАВЫКОВ
-# ═══════════════════════════════════════════════
-SKILL_RULES = {
-    "paths": [
-        ("*.py", "python", 0.9, "language"),
-        ("*.ts", "typescript", 0.9, "language"),
-        ("*.tsx", "react", 0.7, "frontend"),
-        ("*.go", "go", 0.9, "language"),
-        ("*.rs", "rust", 0.9, "language"),
-        ("*.java", "java", 0.9, "language"),
-        ("Dockerfile", "docker", 1.0, "devops"),
-        ("docker-compose*.yml", "docker", 0.9, "devops"),
-        (".github/workflows/*.yml", "ci/cd", 0.9, "devops"),
-        ("*.tf", "terraform", 1.0, "infrastructure"),
-        ("*.sql", "sql", 0.8, "database"),
-        ("requirements.txt", "pip", 0.8, "python"),
-        ("pyproject.toml", "pip", 0.8, "python"),
-        ("package.json", "npm", 0.8, "javascript"),
-        ("Makefile", "make", 0.8, "devops"),
-        ("**/tests/**", "testing", 0.8, "testing"),
-        ("**/test/**", "testing", 0.8, "testing"),
-        ("**/migrations/**", "migrations", 0.9, "database"),
-    ],
-    "patches": [
-        (r"FastAPI\(", "fastapi", 3, "backend"),
-        (r"async\s+def\s", "asyncio", 2, "python"),
-        (r"import\s+pytest|from\s+pytest", "pytest", 2, "testing"),
-        (r"def\s+test_|class\s+Test", "testing", 3, "testing"),
-        (r"SELECT\s.*FROM|INSERT\s+INTO|UPDATE\s.*SET", "sql", 2, "database"),
-        (r"useState\(|useEffect\(|useCallback\(", "react-hooks", 3, "frontend"),
-        (r"docker\s+build|docker\s+run|docker-compose", "docker", 2, "devops"),
-        (r"@app\.route|@router\.|APIRouter", "fastapi", 3, "backend"),
-        (r"class\s+\w+\(Base\)|session\.query|session\.add", "sqlalchemy", 3, "orm"),
-        (r"import\s+pandas|from\s+pandas", "pandas", 3, "data"),
-        (r"import\s+numpy|from\s+numpy", "numpy", 3, "data"),
-        (r"matplotlib|plotly|seaborn", "visualization", 2, "data"),
-        (r"pytest\.mark|@pytest\.fixture", "pytest", 2, "testing"),
-        (r"unittest\.", "unittest", 2, "testing"),
-        (r"@dataclass|from\s+dataclasses", "dataclasses", 1, "python"),
-        (r"pydantic", "pydantic", 3, "python"),
-        (r"celery|@task\b", "celery", 3, "backend"),
-        (r"redis\.|Redis\(", "redis", 3, "database"),
-        (r"kafka|KafkaConsumer|KafkaProducer", "kafka", 3, "backend"),
-    ],
-}
 
 COMMIT_TYPE_PATTERNS = [
     (r"^feat[(:]", "feature"),
@@ -91,20 +45,17 @@ IGNORE_GLOBS = [
     "*.svg", "*.png", "*.jpg", "*.ico", "*.gif",
 ]
 
-DIR_SEMANTICS = [
-    ("/api/", "api-layer"),
-    ("/core/", "core-architecture"),
-    ("/infra/", "infrastructure"),
-    ("/ml/", "machine-learning"),
-    ("/models/", "data-modeling"),
-    ("/utils/", "utilities"),
-    ("/scripts/", "automation"),
-    ("/handlers/", "event-handling"),
-    ("/middleware/", "middleware"),
-    ("/routes/", "routing"),
-    ("/services/", "service-layer"),
-    ("/repositories/", "data-access"),
-]
+# ═══════════════════════════════════════════════
+# ЗАГРУЗКА KNOWLEDGE BASE
+# ═══════════════════════════════════════════════
+
+def load_kb():
+    """Загружает technologies.json из одной папки со скриптом."""
+    kb_path = os.path.join(os.path.dirname(__file__), "technologies.json")
+    with open(kb_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+KB = load_kb()
 
 
 # ═══════════════════════════════════════════════
@@ -127,46 +78,65 @@ def classify_commit(message):
     return "other"
 
 
-def extract_dir_semantics(filepath):
-    """Семантика из пути директории"""
-    return {meaning for pattern, meaning in DIR_SEMANTICS if pattern in filepath}
-
-
 def extract_skills_from_file(file_info):
     """
-    Из одного файла коммита извлекает список навыков.
-    Возвращает: [(skill, confidence, category, patch_weight, semantics), ...]
+    Принимает объект файла из GitHub API.
+    Возвращает список: [(skill, confidence, category, patch_weight, multiplier), ...]
+
+    Правила загружаются из technologies.json.
     """
     path = file_info.filename
     patch = file_info.patch or ""
-    has_patch = bool(file_info.patch)
 
-    if any(match_glob(path, g) for g in IGNORE_GLOBS):
-        return []
+    # Быстрый фильтр мусора
+    for glob in IGNORE_GLOBS:
+        if match_glob(path, glob):
+            return []
 
     results = []
+    technologies = KB.get("technologies", {})
 
-    # Path-based
-    for glob, skill, confidence, category in SKILL_RULES["paths"]:
-        if match_glob(path, glob):
-            results.append((skill, confidence, category, 0, set()))
+    for tech_name, tech in technologies.items():
+        detection = tech.get("detection", {})
+        confidence = 0.0
+        path_weight = 0
 
-    # Patch-based
-    if has_patch:
-        for regex, skill, boost, category in SKILL_RULES["patches"]:
-            if re.search(regex, patch, re.IGNORECASE | re.MULTILINE):
-                existing = [r for r in results if r[0] == skill]
-                if existing:
-                    idx = results.index(existing[0])
-                    old = results[idx]
-                    results[idx] = (old[0], min(1.0, old[1] + 0.2), old[2], old[3] + boost, old[4])
-                else:
-                    results.append((skill, 0.6, category, boost, set()))
+        # Path-based detection
+        for patterns in detection.get("paths", []):
+            if match_glob(path, patterns):
+                confidence += 0.3
+                break
 
-    # Семантика директорий
-    dir_sem = extract_dir_semantics(path)
-    if dir_sem:
-        results = [(s, c, cat, pw, sem | dir_sem) for s, c, cat, pw, sem in results]
+        # Import-based detection
+        for pattern in detection.get("imports", []):
+            if f"import {pattern}" in patch or f"from {pattern}" in patch:
+                confidence += 0.4
+                break
+
+        # Pattern-based detection (regex)
+        for pattern in detection.get("patterns", []):
+            if re.search(pattern, patch, re.IGNORECASE | re.MULTILINE):
+                confidence += 0.3
+                path_weight += 1
+                break
+
+        # Dependency detection
+        for dep in detection.get("dependencies", []):
+            if dep in patch:
+                confidence += 0.2
+                break
+
+        if confidence >= 0.3:
+            multiplier = tech.get("language_multiplier", 1.0)
+            category = tech.get("category", "unknown")
+
+            results.append((
+                tech_name,
+                min(confidence, 1.0),
+                category,
+                path_weight,
+                multiplier,
+            ))
 
     return results
 
@@ -175,10 +145,11 @@ def is_merge_commit(commit):
     return len(commit.parents) > 1
 
 
-def compute_weight(changes, confidence, patch_weight):
+def compute_weight(changes, confidence, patch_weight, multiplier=1.0):
+    """Нормализованный вес с учётом language_multiplier"""
     capped = min(changes, MAX_LINES_FOR_WEIGHT)
     base = math.log1p(capped)
-    return round((base + patch_weight) * confidence, 2)
+    return round((base + patch_weight) * confidence * multiplier, 2)
 
 
 def recency_factor(commit_date_str, half_life_days=365):
@@ -230,8 +201,8 @@ def collect_commits(g, username, repos, since_date):
 
                     skills = extract_skills_from_file(file)
 
-                    for skill, confidence, category, patch_weight, semantics in skills:
-                        weight = compute_weight(changes, confidence, patch_weight)
+                    for skill, confidence, category, patch_weight, multiplier in skills:
+                        weight = compute_weight(changes, confidence, patch_weight, multiplier)
                         extension = os.path.splitext(file.filename)[1] or "no-ext"
 
                         results.append({
@@ -249,7 +220,6 @@ def collect_commits(g, username, repos, since_date):
                             "changes": changes,
                             "weight": weight,
                             "patch_available": bool(file.patch),
-                            "semantics": "|".join(sorted(semantics)) if semantics else "",
                             "message": message,
                         })
 
@@ -273,7 +243,7 @@ def save_to_csv(results, filename="skills.csv"):
         "date", "repo", "sha", "commit_type",
         "file", "extension", "skill", "category",
         "confidence", "additions", "deletions", "changes",
-        "weight", "patch_available", "semantics", "message",
+        "weight", "patch_available", "message",
     ]
 
     with open(filename, "w", newline="", encoding="utf-8") as f:
@@ -327,7 +297,9 @@ def build_profile(results):
         rf = recency_factor(r["date"])
         p["recency_weight"] += r["weight"] * rf
 
-        p["commit_types"][r["commit_type"]] += 1
+        if "commit_types_set" not in p:
+            p["commit_types_set"] = defaultdict(set)
+        p["commit_types_set"][r["commit_type"]].add(r["sha"])
 
         if p["first_used"] is None or r["date"] < p["first_used"]:
             p["first_used"] = r["date"]
@@ -364,9 +336,13 @@ def print_profile(results):
         commits_count = len(data["unique_commits"])
         repos_count = len(data["repos"])
 
+        # commit_types уникально по SHA
+        commit_types_counts = {
+            t: len(shas) for t, shas in data.get("commit_types_set", {}).items()
+        }
         types_str = ", ".join(
             f"{t}:{c}" for t, c in sorted(
-                data["commit_types"].items(),
+                commit_types_counts.items(),
                 key=lambda x: x[1], reverse=True
             )[:3]
         )
@@ -396,6 +372,9 @@ def print_profile(results):
     # JSON
     json_profile = {}
     for skill, data in profile.items():
+        commit_types_counts = {
+            t: len(shas) for t, shas in data.get("commit_types_set", {}).items()
+        }
         json_profile[skill] = {
             "category": data["category"],
             "unique_commits": len(data["unique_commits"]),
@@ -408,7 +387,7 @@ def print_profile(results):
             "status": "active" if (date.today() - datetime.strptime(data["last_used"], "%Y-%m-%d").date()).days <= 30 else (
                 "stale" if (date.today() - datetime.strptime(data["last_used"], "%Y-%m-%d").date()).days <= 180 else "declining"
             ),
-            "commit_types": dict(data["commit_types"]),
+            "commit_types": commit_types_counts,
             "monthly_activity": dict(sorted(data["monthly_activity"].items())),
         }
 

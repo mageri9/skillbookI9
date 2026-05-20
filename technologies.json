@@ -317,7 +317,7 @@
       "detection": {
         "paths": ["**/tasks/**", "**/celery.py"],
         "imports": ["celery"],
-        "patterns": ["@task", "@shared_task", "celery\\.", "Celery\\(", "@app\\.task"],
+        "patterns": ["@shared_task", "@shared_task", "celery\\.", "Celery\\(", "@app\\.task"],
         "dependencies": ["celery"]
       },
       "related": ["redis", "rabbitmq", "django", "fastapi"]
@@ -431,7 +431,7 @@
       "detection": {
         "paths": ["*.tsx", "*.jsx"],
         "imports": ["react"],
-        "patterns": ["from 'react'", "from \"react\"", "useState", "useEffect", "useCallback", "useMemo", "React\\.", "ReactDOM", "<[A-Z]\\w+", "className="],
+        "patterns": ["from 'react'", "from \"react\"", "useState", "useEffect", "useCallback", "useMemo", "React\\.", "ReactDOM", "import React", "extends React\\.", "export default function"],
         "dependencies": ["react", "react-dom"]
       },
       "related": ["nextjs", "typescript", "tailwind"]
@@ -735,7 +735,7 @@
       "detection": {
         "paths": [],
         "imports": ["kafka", "confluent_kafka", "aiokafka"],
-        "patterns": ["KafkaConsumer", "KafkaProducer", "aiokafka", "confluent_kafka", "kafka-python"],
+        "patterns": ["KafkaConsumer\\(", "KafkaProducer\\(", "aiokafka\\.", "confluent_kafka\\."],
         "dependencies": ["kafka-python", "aiokafka", "confluent-kafka"]
       },
       "related": ["fastapi", "docker", "kubernetes"]
