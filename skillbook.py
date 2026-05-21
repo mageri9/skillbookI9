@@ -1,14 +1,16 @@
 import os
-import csv
 import re
 import json
-import fnmatch
-import sys
+import base64
 from datetime import datetime, date
 from collections import defaultdict
 
 from github import Github, Auth
 from dotenv import load_dotenv
+
+# =========================================================
+# CONFIG
+# =========================================================
 
 load_dotenv()
 
@@ -16,333 +18,705 @@ TOKEN = os.getenv("GITHUB_TOKEN")
 USERNAME = os.getenv("GITHUB_USERNAME")
 SINCE_DATE = os.getenv("SINCE_DATE", "2023-01-01")
 
+MAX_FILE_SIZE = 200_000
+MAX_FILES_PER_REPO = 2000
+
+OUTPUT_FILE = "tech_profile.json"
+
 if not TOKEN:
-    raise ValueError("GITHUB_TOKEN not found in .env")
+    raise ValueError("GITHUB_TOKEN missing in .env")
 
-COMMIT_TYPE_PATTERNS = [
-    (r"^feat[(:]", "feature"),
-    (r"^fix[(:]", "bugfix"),
-    (r"^refactor[(:]", "refactor"),
-    (r"^test[(:]", "testing"),
-    (r"^docs[(:]", "docs"),
-    (r"^chore[(:]", "maintenance"),
-    (r"^style[(:]", "style"),
-    (r"^perf[(:]", "performance"),
-]
+# =========================================================
+# TECHNOLOGY DETECTION RULES
+# =========================================================
 
-IGNORE_GLOBS = [
-    "README*", "*.md", ".gitignore", ".editorconfig",
-    "LICENSE", "CHANGELOG*",
-    "package-lock.json", "yarn.lock", "poetry.lock",
-    "Pipfile.lock", "*.min.js", "*.min.css",
-    "*.svg", "*.png", "*.jpg", "*.ico", "*.gif",
-]
+TECHNOLOGIES = {
+    # --- Languages ---
+    "python": {
+        "name": "Python",
+        "category": "language",
+        "ecosystem": "python",
+        "detection": {
+            "paths": ["*.py"],
+            "imports": [],
+            "keywords": [],
+        },
+    },
+    "javascript": {
+        "name": "JavaScript",
+        "category": "language",
+        "ecosystem": "javascript",
+        "detection": {
+            "paths": ["*.js", "*.jsx"],
+            "imports": [],
+            "keywords": [],
+        },
+    },
+    "typescript": {
+        "name": "TypeScript",
+        "category": "language",
+        "ecosystem": "javascript",
+        "detection": {
+            "paths": ["*.ts", "*.tsx"],
+            "imports": [],
+            "keywords": [],
+        },
+    },
+    "go": {
+        "name": "Go",
+        "category": "language",
+        "ecosystem": "go",
+        "detection": {
+            "paths": ["*.go"],
+            "imports": [],
+            "keywords": [],
+        },
+    },
+    "rust": {
+        "name": "Rust",
+        "category": "language",
+        "ecosystem": "rust",
+        "detection": {
+            "paths": ["*.rs"],
+            "imports": [],
+            "keywords": [],
+        },
+    },
 
+    # --- Python Backend ---
+    "fastapi": {
+        "name": "FastAPI",
+        "category": "backend",
+        "ecosystem": "python-backend",
+        "detection": {
+            "paths": [],
+            "imports": ["fastapi"],
+            "keywords": ["FastAPI(", "APIRouter"],
+        },
+    },
+    "django": {
+        "name": "Django",
+        "category": "backend",
+        "ecosystem": "python-backend",
+        "detection": {
+            "paths": ["manage.py"],
+            "imports": ["django"],
+            "keywords": ["DJANGO_SETTINGS_MODULE", "django.setup()"],
+        },
+    },
+    "flask": {
+        "name": "Flask",
+        "category": "backend",
+        "ecosystem": "python-backend",
+        "detection": {
+            "paths": [],
+            "imports": ["flask"],
+            "keywords": ["Flask(__name__)"],
+        },
+    },
 
-# ═══════════════════════════════════════════════
-# KNOWLEDGE BASE
-# ═══════════════════════════════════════════════
+    # --- Python Data ---
+    "sqlalchemy": {
+        "name": "SQLAlchemy",
+        "category": "database",
+        "ecosystem": "python-data",
+        "detection": {
+            "paths": [],
+            "imports": ["sqlalchemy"],
+            "keywords": ["declarative_base", "session.query"],
+        },
+    },
+    "pydantic": {
+        "name": "Pydantic",
+        "category": "data",
+        "ecosystem": "python-data",
+        "detection": {
+            "paths": [],
+            "imports": ["pydantic"],
+            "keywords": ["BaseModel"],
+        },
+    },
+    "pandas": {
+        "name": "Pandas",
+        "category": "data",
+        "ecosystem": "python-data",
+        "detection": {
+            "paths": [],
+            "imports": ["pandas"],
+            "keywords": ["pd.DataFrame", "pd.read_csv"],
+        },
+    },
 
-def load_kb():
-    kb_path = os.path.join(os.path.dirname(__file__), "technologies.json")
-    with open(kb_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    # --- Python Async ---
+    "asyncio": {
+        "name": "asyncio",
+        "category": "language",
+        "ecosystem": "python-async",
+        "detection": {
+            "paths": [],
+            "imports": ["asyncio"],
+            "keywords": ["async def", "await ", "asyncio.create_task"],
+        },
+    },
+    "aiohttp": {
+        "name": "aiohttp",
+        "category": "backend",
+        "ecosystem": "python-async",
+        "detection": {
+            "paths": [],
+            "imports": ["aiohttp"],
+            "keywords": ["aiohttp.ClientSession"],
+        },
+    },
 
+    # --- Testing ---
+    "pytest": {
+        "name": "pytest",
+        "category": "testing",
+        "ecosystem": "python-testing",
+        "detection": {
+            "paths": ["conftest.py", "pytest.ini"],
+            "imports": ["pytest"],
+            "keywords": ["def test_", "@pytest.fixture"],
+        },
+    },
 
-KB = load_kb()
+    # --- Frontend ---
+    "react": {
+        "name": "React",
+        "category": "frontend",
+        "ecosystem": "javascript-frontend",
+        "detection": {
+            "paths": [],
+            "imports": ["react"],
+            "keywords": ["useState(", "useEffect(", "ReactDOM"],
+        },
+    },
+    "nextjs": {
+        "name": "Next.js",
+        "category": "frontend",
+        "ecosystem": "javascript-frontend",
+        "detection": {
+            "paths": ["next.config.js", "next.config.mjs"],
+            "imports": ["next"],
+            "keywords": ["getServerSideProps", "use client"],
+        },
+    },
 
+    # --- Databases ---
+    "postgresql": {
+        "name": "PostgreSQL",
+        "category": "database",
+        "ecosystem": "databases",
+        "detection": {
+            "paths": [],
+            "imports": ["psycopg2", "asyncpg", "psycopg"],
+            "keywords": ["postgresql://", "postgres://"],
+        },
+    },
+    "redis": {
+        "name": "Redis",
+        "category": "database",
+        "ecosystem": "databases",
+        "detection": {
+            "paths": [],
+            "imports": ["redis", "aioredis"],
+            "keywords": ["redis://", "Redis("],
+        },
+    },
+    "mongodb": {
+        "name": "MongoDB",
+        "category": "database",
+        "ecosystem": "databases",
+        "detection": {
+            "paths": [],
+            "imports": ["pymongo", "motor"],
+            "keywords": ["mongodb://", "MongoClient"],
+        },
+    },
 
-# ═══════════════════════════════════════════════
+    # --- DevOps ---
+    "docker": {
+        "name": "Docker",
+        "category": "devops",
+        "ecosystem": "infrastructure",
+        "detection": {
+            "paths": ["Dockerfile", "docker-compose.yml", "docker-compose.yaml", ".dockerignore"],
+            "imports": [],
+            "keywords": ["FROM ", "docker build", "docker run"],
+        },
+    },
+    "kubernetes": {
+        "name": "Kubernetes",
+        "category": "devops",
+        "ecosystem": "infrastructure",
+        "detection": {
+            "paths": [],
+            "imports": [],
+            "keywords": ["apiVersion:", "kind: Deployment", "kind: Service"],
+        },
+    },
+    "github-actions": {
+        "name": "GitHub Actions",
+        "category": "devops",
+        "ecosystem": "infrastructure",
+        "detection": {
+            "paths": [".github/workflows/*.yml", ".github/workflows/*.yaml"],
+            "imports": [],
+            "keywords": ["actions/checkout", "runs-on:"],
+        },
+    },
+    "nginx": {
+        "name": "Nginx",
+        "category": "devops",
+        "ecosystem": "infrastructure",
+        "detection": {
+            "paths": ["nginx.conf"],
+            "imports": [],
+            "keywords": ["proxy_pass", "upstream "],
+        },
+    },
+
+    # --- Cloud ---
+    "aws": {
+        "name": "AWS",
+        "category": "cloud",
+        "ecosystem": "cloud",
+        "detection": {
+            "paths": [],
+            "imports": ["boto3", "botocore"],
+            "keywords": ["aws_access_key", "s3://", "arn:aws:"],
+        },
+    },
+
+    # --- Message Queues ---
+    "celery": {
+        "name": "Celery",
+        "category": "backend",
+        "ecosystem": "python-backend",
+        "detection": {
+            "paths": [],
+            "imports": ["celery"],
+            "keywords": ["@shared_task", "Celery("],
+        },
+    },
+    "kafka": {
+        "name": "Kafka",
+        "category": "backend",
+        "ecosystem": "infrastructure",
+        "detection": {
+            "paths": [],
+            "imports": ["kafka", "confluent_kafka", "aiokafka"],
+            "keywords": ["KafkaConsumer", "KafkaProducer"],
+        },
+    },
+
+    # --- APIs ---
+    "graphql": {
+        "name": "GraphQL",
+        "category": "backend",
+        "ecosystem": "web",
+        "detection": {
+            "paths": ["*.graphql", "*.gql"],
+            "imports": ["graphql", "graphene", "strawberry"],
+            "keywords": ["type Query", "type Mutation", "ObjectType"],
+        },
+    },
+    "grpc": {
+        "name": "gRPC",
+        "category": "backend",
+        "ecosystem": "infrastructure",
+        "detection": {
+            "paths": ["*.proto"],
+            "imports": ["grpc"],
+            "keywords": ["grpc.server", "_pb2"],
+        },
+    },
+    "websockets": {
+        "name": "WebSockets",
+        "category": "backend",
+        "ecosystem": "web",
+        "detection": {
+            "paths": [],
+            "imports": ["websockets", "websocket"],
+            "keywords": ["ws://", "wss://", "@app.websocket"],
+        },
+    },
+
+    # --- Telegram Bots ---
+    "aiogram": {
+        "name": "aiogram",
+        "category": "backend",
+        "ecosystem": "python-async",
+        "detection": {
+            "paths": [],
+            "imports": ["aiogram"],
+            "keywords": ["Dispatcher(", "@dp.message", "FSMContext"],
+        },
+    },
+}
+
+# =========================================================
 # HELPERS
-# ═══════════════════════════════════════════════
-
-def match_glob(filepath, pattern):
-    if "**" in pattern:
-        prefix, suffix = pattern.split("**", 1)
-        return filepath.startswith(prefix.rstrip("/")) and filepath.endswith(suffix.lstrip("/"))
-    return fnmatch.fnmatch(filepath, pattern)
+# =========================================================
 
 
-def classify_commit(message):
-    for pattern, ctype in COMMIT_TYPE_PATTERNS:
-        if re.search(pattern, message, re.IGNORECASE):
-            return ctype
-    return "other"
+def glob_to_regex(pattern):
+    """Простой glob → regex"""
+    pattern = re.escape(pattern)
+    pattern = pattern.replace(r"\*\*", ".*")
+    pattern = pattern.replace(r"\*", "[^/]*")
+    return "^" + pattern + "$"
 
 
-def extract_skills_from_file(file_info):
-    path = file_info.filename
-    patch = file_info.patch or ""
+def match_path(filepath, pattern):
+    return bool(re.match(glob_to_regex(pattern), filepath))
 
-    for glob in IGNORE_GLOBS:
-        if match_glob(path, glob):
-            return []
 
-    results = []
-    technologies = KB.get("technologies", {})
+def safe_decode(content):
+    try:
+        return base64.b64decode(content).decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
 
-    for tech_name, tech in technologies.items():
+
+def detect_in_file(filepath, content):
+    """Ищет технологии в одном файле"""
+    found = []
+
+    for tech_id, tech in TECHNOLOGIES.items():
         detection = tech.get("detection", {})
-        confidence = 0.0
+        detected = False
+        evidence = []
 
+        # Path signals
         for pattern in detection.get("paths", []):
-            if match_glob(path, pattern):
-                confidence += 0.3
+            if match_path(filepath, pattern):
+                detected = True
+                evidence.append({"type": "path", "value": pattern})
                 break
 
-        for pattern in detection.get("imports", []):
-            if f"import {pattern}" in patch or f"from {pattern}" in patch:
-                confidence += 0.4
-                break
+        # Import signals
+        if not detected:
+            for imp in detection.get("imports", []):
+                patterns = [
+                    rf"import\s+{re.escape(imp)}",
+                    rf"from\s+{re.escape(imp)}",
+                    rf'require\(["\']{re.escape(imp)}',
+                ]
+                for p in patterns:
+                    if re.search(p, content):
+                        detected = True
+                        evidence.append({"type": "import", "value": imp})
+                        break
+                if detected:
+                    break
 
-        for pattern in detection.get("patterns", []):
-            if re.search(pattern, patch, re.IGNORECASE | re.MULTILINE):
-                confidence += 0.3
-                break
+        # Keyword signals
+        if not detected:
+            for kw in detection.get("keywords", []):
+                if kw.lower() in content.lower():
+                    detected = True
+                    evidence.append({"type": "keyword", "value": kw})
+                    break
 
-        for dep in detection.get("dependencies", []):
-            if dep in patch:
-                confidence += 0.2
-                break
+        if detected:
+            found.append(
+                {
+                    "technology": tech_id,
+                    "name": tech["name"],
+                    "category": tech["category"],
+                    "ecosystem": tech["ecosystem"],
+                    "evidence": evidence,
+                }
+            )
 
-        if confidence >= 0.3:
-            results.append((
-                tech_name,
-                min(confidence, 1.0),
-                tech.get("category", "unknown"),
-            ))
-
-    return results
-
-
-def is_merge_commit(commit):
-    return len(commit.parents) > 1
+    return found
 
 
-# ═══════════════════════════════════════════════
-# COLLECT
-# ═══════════════════════════════════════════════
+def activity_status(last_seen):
+    if not last_seen:
+        return "unknown"
 
-def collect_commits(g, username, repos, since_date):
-    since = datetime.strptime(since_date, "%Y-%m-%d")
-    results = []
+    last_date = datetime.strptime(last_seen, "%Y-%m-%d").date()
+    days = (date.today() - last_date).days
 
-    for repo_name in repos:
-        repo_full = f"{username}/{repo_name}"
-        print(f"  Обрабатываю {repo_full}...")
+    if days <= 30:
+        return "active"
+    elif days <= 180:
+        return "stale"
+    else:
+        return "declining"
 
-        try:
-            repo = g.get_repo(repo_full)
-            commits = repo.get_commits(author=username, since=since)
 
-            for commit in commits:
-                if is_merge_commit(commit):
-                    continue
+# =========================================================
+# REPOSITORY SCANNER
+# =========================================================
 
+
+def walk_repo(repo, path=""):
+    """Рекурсивно собирает все файлы репозитория"""
+    files = []
+
+    try:
+        contents = repo.get_contents(path)
+
+        while contents:
+            item = contents.pop(0)
+
+            if item.type == "dir":
                 try:
-                    files = commit.files
+                    contents.extend(repo.get_contents(item.path))
                 except Exception:
+                    pass
+            else:
+                files.append(item)
+
+    except Exception:
+        pass
+
+    return files
+
+
+def scan_repo(repo):
+    """Сканирует один репозиторий"""
+    print(f"  📁 {repo.full_name}...", end=" ", flush=True)
+
+    tech_data = defaultdict(lambda: {"files": set()})
+
+    try:
+        files = walk_repo(repo)
+        processed = 0
+
+        for file in files:
+            if processed >= MAX_FILES_PER_REPO:
+                break
+
+            if file.size > MAX_FILE_SIZE:
+                continue
+
+            processed += 1
+
+            try:
+                raw = repo.get_contents(file.path)
+
+                if raw.encoding != "base64":
                     continue
 
-                commit_type = classify_commit(commit.commit.message)
-                commit_date = commit.commit.author.date.strftime("%Y-%m-%d")
-                sha = commit.sha[:7]
-                message = commit.commit.message.split("\n")[0][:120]
+                content = safe_decode(raw.content)
+                detected = detect_in_file(file.path, content)
 
-                for file in files:
-                    if not file.filename:
-                        continue
+                for tech in detected:
+                    tech_data[tech["technology"]]["files"].add(file.path)
+                    tech_data[tech["technology"]]["name"] = tech["name"]
+                    tech_data[tech["technology"]]["category"] = tech["category"]
+                    tech_data[tech["technology"]]["ecosystem"] = tech["ecosystem"]
 
-                    additions = file.additions or 0
-                    deletions = file.deletions or 0
-                    changes = additions + deletions
+            except Exception:
+                continue
 
-                    if changes > 10000:
-                        continue
+        print(f"✅ {len(tech_data)} technologies")
+        return tech_data
 
-                    skills = extract_skills_from_file(file)
-
-                    for skill, confidence, category in skills:
-                        results.append({
-                            "date": commit_date,
-                            "repo": repo_name,
-                            "sha": sha,
-                            "commit_type": commit_type,
-                            "file": file.filename,
-                            "skill": skill,
-                            "category": category,
-                            "confidence": round(confidence, 2),
-                            "additions": additions,
-                            "deletions": deletions,
-                            "changes": changes,
-                            "message": message,
-                        })
-
-        except Exception as e:
-            print(f"    Ошибка: {e}")
-            continue
-
-    return results
+    except Exception as e:
+        print(f"❌ {e}")
+        return {}
 
 
-# ═══════════════════════════════════════════════
-# PROFILE
-# ═══════════════════════════════════════════════
-
-def save_to_csv(results, filename="skills.csv"):
-    if not results:
-        print("Нет данных для сохранения")
-        return
-
-    fields = [
-        "date", "repo", "sha", "commit_type",
-        "file", "skill", "category",
-        "confidence", "additions", "deletions", "changes", "message",
-    ]
-
-    with open(filename, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(results)
-
-    print(f"  Сохранено {len(results)} записей в {filename}")
+# =========================================================
+# ACTIVITY SCANNER (commits)
+# =========================================================
 
 
-def build_cooccurrence(results):
-    commit_skills = defaultdict(set)
-    for r in results:
-        commit_skills[r["sha"]].add(r["skill"])
+def scan_activity(repo, since_date):
+    """Собирает активность по коммитам (факт коммита, не строки)"""
+    since = datetime.strptime(since_date, "%Y-%m-%d")
+    activity = defaultdict(lambda: {"commits": set(), "commit_types": defaultdict(int)})
 
-    cooc = defaultdict(lambda: defaultdict(int))
-    for skills in commit_skills.values():
-        for s1 in skills:
-            for s2 in skills:
-                if s1 < s2:
-                    cooc[s1][s2] += 1
-                    cooc[s2][s1] += 1
-    return cooc
+    try:
+        commits = repo.get_commits(since=since)
+
+        for commit in commits:
+            if len(commit.parents) > 1:  # merge commit
+                continue
+
+            msg = commit.commit.message.lower()
+
+            # Классификация коммита
+            for prefix in ["feat", "fix", "refactor", "test", "docs", "chore", "style", "perf"]:
+                if msg.startswith(prefix):
+                    ctype = prefix
+                    break
+            else:
+                ctype = "other"
+
+            try:
+                files = commit.files
+            except Exception:
+                continue
+
+            for file in files:
+                if not file.filename:
+                    continue
+
+                detected = detect_in_file(file.filename, file.patch or "")
+
+                for tech in detected:
+                    tech_id = tech["technology"]
+                    activity[tech_id]["commits"].add(commit.sha[:7])
+                    activity[tech_id]["commit_types"][ctype] += 1
+
+    except Exception:
+        pass
+
+    return activity
 
 
-def build_profile(results):
-    profile = defaultdict(lambda: {
-        "commits": set(),
-        "repos": set(),
-        "files": set(),
-        "lines": 0,
-        "first_used": None,
-        "last_used": None,
-        "category": "",
-    })
+# =========================================================
+# PROFILE BUILDER
+# =========================================================
 
-    for r in results:
-        skill = r["skill"]
-        p = profile[skill]
 
-        p["commits"].add(r["sha"])
-        p["repos"].add(r["repo"])
-        p["files"].add(r["file"])
-        p["lines"] += r["changes"]
+def build_profile(g, username, since_date):
+    """Собирает полный профиль по всем репозиториям"""
 
-        if p["first_used"] is None or r["date"] < p["first_used"]:
-            p["first_used"] = r["date"]
-        if p["last_used"] is None or r["date"] > p["last_used"]:
-            p["last_used"] = r["date"]
+    user = g.get_user(username)
+    repos = [r for r in user.get_repos() if not r.fork]
 
-        p["category"] = r["category"]
+    print(f"\n👤 {username}")
+    print(f"📦 {len(repos)} repositories\n")
+
+    # Presence + files
+    presence = defaultdict(
+        lambda: {
+            "name": "",
+            "category": "",
+            "ecosystem": "",
+            "repos": set(),
+            "files": set(),
+            "first_seen": None,
+            "last_seen": None,
+        }
+    )
+
+    # Activity
+    activity = defaultdict(lambda: {"commits": set(), "commit_types": defaultdict(int)})
+
+    for repo in repos:
+        # Presence scan
+        repo_tech = scan_repo(repo)
+
+        for tech_id, data in repo_tech.items():
+            p = presence[tech_id]
+            p["name"] = data.get("name", tech_id)
+            p["category"] = data.get("category", "")
+            p["ecosystem"] = data.get("ecosystem", "")
+            p["repos"].add(repo.name)
+            p["files"].update(data["files"])
+
+            # Dates
+            created = repo.created_at.strftime("%Y-%m-%d")
+            updated = repo.updated_at.strftime("%Y-%m-%d")
+
+            if not p["first_seen"] or created < p["first_seen"]:
+                p["first_seen"] = created
+            if not p["last_seen"] or updated > p["last_seen"]:
+                p["last_seen"] = updated
+
+        # Activity scan
+        repo_activity = scan_activity(repo, since_date)
+
+        for tech_id, data in repo_activity.items():
+            a = activity[tech_id]
+            a["commits"].update(data["commits"])
+            for ctype, count in data["commit_types"].items():
+                a["commit_types"][ctype] += count
+
+    # Сборка финального профиля
+    profile = {}
+
+    for tech_id in presence:
+        profile[tech_id] = {
+            "name": presence[tech_id]["name"],
+            "category": presence[tech_id]["category"],
+            "ecosystem": presence[tech_id]["ecosystem"],
+            "repos": sorted(presence[tech_id]["repos"]),
+            "repo_count": len(presence[tech_id]["repos"]),
+            "file_count": len(presence[tech_id]["files"]),
+            "commits": len(activity.get(tech_id, {}).get("commits", set())),
+            "commit_types": dict(activity.get(tech_id, {}).get("commit_types", {})),
+            "first_seen": presence[tech_id]["first_seen"],
+            "last_seen": presence[tech_id]["last_seen"],
+            "status": activity_status(presence[tech_id]["last_seen"]),
+        }
 
     return profile
 
 
-def print_profile(results):
-    if not results:
-        return
-
-    profile = build_profile(results)
-    cooc = build_cooccurrence(results)
-
-    print()
-    print("=" * 70)
-    print("ИНЖЕНЕРНЫЙ ПРОФИЛЬ")
-    print("=" * 70)
-
-    sorted_skills = sorted(
-        profile.items(),
-        key=lambda x: len(x[1]["commits"]),
-        reverse=True
-    )
-
-    for skill, data in sorted_skills[:20]:
-        commits_count = len(data["commits"])
-        repos_count = len(data["repos"])
-        files_count = len(data["files"])
-
-        last_date = datetime.strptime(data["last_used"], "%Y-%m-%d").date()
-        days_since = (date.today() - last_date).days
-        if days_since <= 30:
-            status = "🟢 active"
-        elif days_since <= 180:
-            status = "🟡 stale"
-        else:
-            status = "⚪ declining"
-
-        print(f"\n{skill} ({data['category']}) {status}")
-        print(f"  Коммитов: {commits_count}  |  Репо: {repos_count}  |  Файлов: {files_count}")
-        print(f"  Строк изменено: {data['lines']}")
-        print(f"  Период: {data['first_used']} → {data['last_used']}")
-
-        if skill in cooc:
-            top_cooc = sorted(cooc[skill].items(), key=lambda x: x[1], reverse=True)[:5]
-            cooc_str = ", ".join(f"{s}({c})" for s, c in top_cooc if c > 1)
-            if cooc_str:
-                print(f"  Вместе с: {cooc_str}")
-
-    # JSON
-    json_profile = {}
-    for skill, data in profile.items():
-        json_profile[skill] = {
-            "category": data["category"],
-            "commits": len(data["commits"]),
-            "repos": sorted(data["repos"]),
-            "files": len(data["files"]),
-            "lines": data["lines"],
-            "first_used": data["first_used"],
-            "last_used": data["last_used"],
-            "status": "active" if (date.today() - datetime.strptime(data["last_used"], "%Y-%m-%d").date()).days <= 30 else (
-                "stale" if (date.today() - datetime.strptime(data["last_used"], "%Y-%m-%d").date()).days <= 180 else "declining"
-            ),
-        }
-
-    json_cooc = {}
-    for s1 in cooc:
-        filtered = {s2: c for s2, c in cooc[s1].items() if c >= 2}
-        if filtered:
-            json_cooc[s1] = dict(sorted(filtered.items(), key=lambda x: x[1], reverse=True))
-
-    with open("profile.json", "w", encoding="utf-8") as f:
-        json.dump({"skills": json_profile, "cooccurrence": json_cooc}, f, indent=2, ensure_ascii=False)
-
-    print(f"\n📄 profile.json сохранён")
+# =========================================================
+# OUTPUT
+# =========================================================
 
 
-# ═══════════════════════════════════════════════
+def print_profile(profile):
+    """Выводит профиль, сгруппированный по экосистемам"""
+
+    # Группировка по экосистемам
+    ecosystems = defaultdict(list)
+    for tech_id, data in profile.items():
+        eco = data.get("ecosystem", "other")
+        ecosystems[eco].append((tech_id, data))
+
+    print("\n" + "=" * 60)
+    print("TECHNOLOGY PROFILE")
+    print("=" * 60)
+
+    status_icons = {"active": "🟢", "stale": "🟡", "declining": "⚪", "unknown": "❓"}
+
+    for eco, techs in sorted(ecosystems.items()):
+        print(f"\n── {eco} ──")
+
+        for tech_id, data in sorted(techs, key=lambda x: x[1]["repo_count"], reverse=True):
+            icon = status_icons.get(data["status"], "❓")
+
+            print(f"  {icon} {data['name']:<20} "
+                  f"repos: {data['repo_count']:<3} "
+                  f"files: {data['file_count']:<4} "
+                  f"commits: {data['commits']:<4} "
+                  f"{data['first_seen']} → {data['last_seen']}")
+
+    # Статистика
+    total_techs = len(profile)
+    active = sum(1 for d in profile.values() if d["status"] == "active")
+    stale = sum(1 for d in profile.values() if d["status"] == "stale")
+    declining = sum(1 for d in profile.values() if d["status"] == "declining")
+
+    print(f"\n{'=' * 60}")
+    print(f"Total: {total_techs} technologies "
+          f"({active} active, {stale} stale, {declining} declining)")
+    print(f"{'=' * 60}\n")
+
+
+def save_profile(profile, filename=OUTPUT_FILE):
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(profile, f, indent=2, ensure_ascii=False)
+    print(f"💾 Saved to {filename}")
+
+
+# =========================================================
 # MAIN
-# ═══════════════════════════════════════════════
+# =========================================================
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        USERNAME = sys.argv[1]
 
+def main():
     auth = Auth.Token(TOKEN)
     g = Github(auth=auth)
-    user = g.get_user(USERNAME)
-    repos = [repo.name for repo in user.get_repos()]
 
-    print(f"Пользователь: {USERNAME}")
-    print(f"Репозиториев: {len(repos)}")
-    print(f"Первые 10: {repos[:10]}")
-    print()
+    profile = build_profile(g, USERNAME, SINCE_DATE)
 
-    os.makedirs("output", exist_ok=True)
-    results = collect_commits(g, USERNAME, repos, SINCE_DATE)
-    save_to_csv(results, "output/skills.csv")
-    print_profile(results)
+    print_profile(profile)
+    save_profile(profile)
+
+
+if __name__ == "__main__":
+    main()
