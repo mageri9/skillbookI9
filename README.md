@@ -107,8 +107,7 @@ output/skills.csv
 - commit
 - file
 - detected skill
-- weight
-- confidence
+
 - lines changed
 
 ---
