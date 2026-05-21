@@ -4,6 +4,9 @@ import argparse
 import os
 
 from dotenv import load_dotenv
+from github import Auth, Github
+
+from github_profiler.pipeline import CollectionPipeline
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,8 +36,23 @@ def main() -> None:
     print(f"📅 Since: {args.since}")
     print(f"💾 Output: {args.output}")
     print()
-    print("⚠️  Phase 0 complete. Awaiting Phase 1 implementation...")
-    print("   (Tree collector, commit collector, etc.)")
+
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
+
+    pipeline = CollectionPipeline(g)
+    results = pipeline.collect_user(args.username, args.since)
+
+    print(f"\n✅ Collection complete: {len(results)} repos processed")
+
+    # TODO: Phase 2-5: Normalization and aggregation
+    # For now, save raw results
+    import json
+
+    with open(args.output, "w") as f:
+        json.dump(results, f, indent=2)
+
+    print(f"💾 Raw data saved to {args.output}")
 
 
 if __name__ == "__main__":

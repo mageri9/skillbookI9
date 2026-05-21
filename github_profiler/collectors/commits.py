@@ -30,7 +30,7 @@ class CommitCollector:
                 commits_data.append(commit_data)
 
         except Exception as e:
-            return {repo: repo.full_name, "error": str(e), "commits": []}
+            return {"repo": repo.full_name, "error": str(e), "commits": []}
 
         return {
             "repo": repo.full_name,
