@@ -63,3 +63,19 @@ class CollectionPipeline:
                 print(f"❌ {e}")
 
         return result
+
+
+# ============================================================
+# PHASE 2 BOUNDARY
+# ============================================================
+# The code below is collection-only (Phase 1).
+#
+# Phase 2 will add:
+#   - evidence extraction from tree data
+#   - signal normalization
+#   - technology detection
+#   - activity aggregation
+#   - profile generation
+#
+# Do NOT add analytics/inference here.
+# ============================================================

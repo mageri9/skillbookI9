@@ -6,6 +6,7 @@ output/
 skills.csv
 skills_v3.csv
 profile.json
+raw_data.json
 
 # Python
 __pycache__/

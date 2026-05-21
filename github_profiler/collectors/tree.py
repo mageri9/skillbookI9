@@ -1,9 +1,16 @@
-"""GitHub Tree Collector - Recursive tree fetching"""
+"""GitHub Tree Collector - Recursive tree fetching
+
+SOURCE OF TRUTH FOR TECHNOLOGY DETECTION:
+- Complete file tree with all files
+- Used to detect technologies via imports, keywords, paths
+- Commit patches are NOT used for detection (incomplete context)
+"""
 
 from datetime import datetime
-from typing import Any
 
 from github import Github, Repository
+
+from .types import FileInfo, RepoTreeData
 
 
 class TreeCollector:
@@ -14,17 +21,16 @@ class TreeCollector:
         self.max_file_size = 200_000  # 200KB
         self.max_files_per_repo = 2000
 
-    def collect(self, repo: Repository.Repository) -> dict[str, Any]:
+    def collect(self, repo: Repository.Repository) -> RepoTreeData:
         """Collect file tree for a repository"""
         try:
             # Get HEAD commit
             head_commit = repo.get_commits().reversed[0]
 
-            # Get recursive tree (GitHub API limitation: no native recursive)
-            # We'll fetch tree and recursively expand
+            # Get recursive tree
             tree = repo.get_git_tree(sha=head_commit.sha, recursive=True)
 
-            files = []
+            files: list[FileInfo] = []
             for item in tree.tree:
                 if item.type == "blob":  # file, not directory
                     if item.size <= self.max_file_size:
@@ -44,5 +50,13 @@ class TreeCollector:
                 "collected_at": datetime.now().isoformat(),
             }
 
-        except Exception as e:
-            return {"repo": repo.full_name, "error": str(e), "files": []}
+        except Exception:
+            # Return empty tree on error
+            return {
+                "repo": repo.full_name,
+                "branch": repo.default_branch,
+                "commit_sha": "",
+                "files": [],
+                "total_files": 0,
+                "collected_at": datetime.now().isoformat(),
+            }

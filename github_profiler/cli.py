@@ -14,7 +14,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="GitHub Developer Intelligence System")
     parser.add_argument("--username", required=True, help="GitHub username")
     parser.add_argument("--since", default="2023-01-01", help="Scan from date")
-    parser.add_argument("--output", default="profile.json", help="Output file")
+    parser.add_argument("--output", default="raw_data.json", help="Output file")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     return parser.parse_args()

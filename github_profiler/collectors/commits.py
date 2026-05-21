@@ -1,10 +1,17 @@
-"""Commit Collector - Fetches commits and patches"""
+"""Commit Collector - Fetches commits and patches
+
+SOURCE OF TRUTH FOR ACTIVITY/EVOLUTION:
+- Commit frequency and types
+- Added/removed lines
+- NOT used for technology detection (patches are incomplete context)
+"""
 
 from datetime import datetime
-from typing import Any
 
 from github import Github, Repository
 from github.Commit import Commit
+
+from .types import CommitCollection, CommitData, CommitFileChange
 
 
 class CommitCollector:
@@ -13,9 +20,9 @@ class CommitCollector:
     def __init__(self, github_client: Github) -> None:
         self.client = github_client
 
-    def collect(self, repo: Repository.Repository, since_date: str) -> dict[str, Any]:
+    def collect(self, repo: Repository.Repository, since_date: str) -> CommitCollection:
         """Collect commits since date"""
-        commits_data = []
+        commits_data: list[CommitData] = []
 
         try:
             since = datetime.strptime(since_date, "%Y-%m-%d")
@@ -29,8 +36,13 @@ class CommitCollector:
                 commit_data = self._extract_commit_data(commit)
                 commits_data.append(commit_data)
 
-        except Exception as e:
-            return {"repo": repo.full_name, "error": str(e), "commits": []}
+        except Exception:
+            return {
+                "repo": repo.full_name,
+                "commits": [],
+                "total_commits": 0,
+                "collected_at": datetime.now().isoformat(),
+            }
 
         return {
             "repo": repo.full_name,
@@ -39,7 +51,7 @@ class CommitCollector:
             "collected_at": datetime.now().isoformat(),
         }
 
-    def _extract_commit_data(self, commit: Commit) -> dict[str, Any]:
+    def _extract_commit_data(self, commit: Commit) -> CommitData:
         """Extract data from single commit"""
         # Classify commit type by conventional commit prefix
         msg = commit.commit.message.lower()
@@ -51,7 +63,7 @@ class CommitCollector:
                 break
 
         # Extract file changes
-        files_changed = []
+        files_changed: list[CommitFileChange] = []
         added_lines_total = 0
         removed_lines_total = 0
 
