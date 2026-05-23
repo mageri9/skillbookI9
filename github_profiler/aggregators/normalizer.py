@@ -35,9 +35,12 @@ class Normalizer:
         detected_at = datetime.now()
 
         for signal in signals:
-            signal_type = signal.get("signal_type")
-            if not signal_type:
+            raw_signal_type = signal.get("signal_type")
+
+            if not raw_signal_type:
                 continue
+
+            signal_type = SignalType(raw_signal_type)
 
             strength = self.STRENGTH_MAP[signal_type]
             detector = self.DETECTOR_MAP[signal_type]
@@ -58,13 +61,18 @@ class Normalizer:
 
     def normalize_signal(self, signal: dict[str, Any], repo: str, file_path: str) -> Evidence:
         """Normalize a single signal with context"""
-        signal_type = signal.get("signal_type", "")
+        raw_signal_type = signal.get("signal_type")
+
+        if not raw_signal_type:
+            raise ValueError("signal_type is required")
+
+        signal_type = SignalType(raw_signal_type)
 
         return Evidence(
             technology_id=signal.get("technology_id", ""),
             signal_type=signal_type,
-            strength=self.STRENGTH_MAP.get(signal_type, Strength.WEAK),
-            detector=self.DETECTOR_MAP.get(signal_type, "unknown"),
+            strength=self.STRENGTH_MAP[signal_type],
+            detector=self.DETECTOR_MAP[signal_type],
             repo=repo,
             file_path=file_path,
             value=signal.get("value", ""),
