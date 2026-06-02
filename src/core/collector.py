@@ -12,6 +12,9 @@ from threading import Lock
 from github import Github, Auth, GithubException, RateLimitExceededException
 from dotenv import load_dotenv
 
+from src.core.normalizer import normalize
+from src.models import AnalysisResult
+
 load_dotenv()
 
 print_lock = Lock()
@@ -77,7 +80,7 @@ def process_single_repo(
 
 def collect_commits(
     username: str, since_date: str, max_workers: int = 10
-) -> list[dict]:
+) -> AnalysisResult:
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         raise ValueError("GITHUB_TOKEN not found")
@@ -129,7 +132,7 @@ def collect_commits(
             elif result:
                 all_manifests.append(result)
 
-    return all_manifests
+    return normalize(all_manifests, username)
 
 
 def main():
