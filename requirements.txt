@@ -3,3 +3,4 @@ python-dotenv==1.0.1
 
 
 pydantic-settings==2.14.1
+sqlalchemy
