@@ -4,7 +4,7 @@
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FileChange(BaseModel):
@@ -22,7 +22,7 @@ class Commit(BaseModel):
     date: datetime
     message: str
     repo: str
-    files: list[FileChange] = []
+    files: list[FileChange] = Field(default_factory=list)
 
 
 class AnalysisResult(BaseModel):

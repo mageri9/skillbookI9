@@ -183,21 +183,28 @@ def main():
     print(f"📅 Период: с {since}\n")
 
     start_time = datetime.now()
-
-    manifests = collect_commits(username, since, max_workers=workers)
-
     output_file = "commit_chronicle.json"
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(manifests, f, indent=2, ensure_ascii=False)
 
-    total_commits = sum(len(m["commits"]) for m in manifests)
+    result = collect_commits(username, since, max_workers=workers)
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(
+            result.model_dump(mode="json"),
+            f,
+            indent=2,
+            ensure_ascii=False,
+        )
+
+    total_commits = len(result.commits)
+    repo_count = len({c.repo for c in result.commits})
+
     elapsed = (datetime.now() - start_time).total_seconds()
 
     print(f"\n{'=' * 50}")
     print(f"✅ Сохранено в {output_file}")
-    print(f"📊 Репозиториев с коммитами: {len(manifests)}")
+    print(f"📊 Репозиториев с коммитами: {repo_count}")
     print(f"📊 Всего коммитов: {total_commits}")
-    print(f"⏱️  Время выполнения: {elapsed:.1f}s")
+    print(f"⏱️ Время выполнения: {elapsed:.1f}s")
 
 
 if __name__ == "__main__":
