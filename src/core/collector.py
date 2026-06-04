@@ -103,7 +103,9 @@ def collect_commits(
     # Проверяем лимиты
     try:
         rate_limit = g.get_rate_limit()
-        remaining = rate_limit.core.remaining
+
+        remaining = rate_limit.resources.core.remaining
+
         print(f"📡 API запросов осталось: {remaining}")
 
         if remaining < 10:
