@@ -9,10 +9,11 @@ import sys
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-from github import Github, Auth, GithubException, RateLimitExceededException
+from github import GithubException, RateLimitExceededException
 from dotenv import load_dotenv
 
 from src.core.normalizer import normalize
+from src.core.token_rotator import token_rotator
 from src.models import AnalysisResult
 from src.core.exceptions import (
     RateLimitError,
@@ -98,7 +99,7 @@ def collect_commits(
     if not token:
         raise ValueError("GITHUB_TOKEN not found")
 
-    g = Github(auth=Auth.Token(token))
+    g = token_rotator.get_client()
 
     # Проверяем лимиты
     try:
