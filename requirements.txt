@@ -1,6 +1,8 @@
 PyGithub==2.9.1
 python-dotenv==1.2.2
 
-
+aiosqlite
 pydantic-settings==2.14.1
 sqlalchemy
+redis
+arq

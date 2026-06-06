@@ -3,19 +3,27 @@
 """
 
 from src.worker.tasks import analyze_github_user
-from src.config import settings
 from src.storage.database import init_db
+from arq.connections import RedisSettings
 
 
 class WorkerSettings:
     functions = [analyze_github_user]
-    redis_settings = settings.redis_url
+
+    redis_settings = RedisSettings(
+        host="localhost",
+        port=6379,
+        database=0,
+    )
+
     max_jobs = 3
     job_timeout = 300
     keep_result = 3600
 
-    async def on_startup(self, ctx):
+    @staticmethod
+    async def on_startup(ctx):
         await init_db()
 
-    async def on_shutdown(self, ctx):
+    @staticmethod
+    async def on_shutdown(ctx):
         pass

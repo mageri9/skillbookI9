@@ -3,7 +3,6 @@ SQLite через SQLAlchemy Core + aiosqlite.
 WAL-режим для конкурентного чтения/записи.
 """
 
-import uuid
 import asyncio
 from datetime import datetime, timezone
 
@@ -31,7 +30,7 @@ requests = Table(
     metadata,
     Column("id", Text, primary_key=True),
     Column("username", Text, primary_key=False),
-    Column("period", Text, primary_key=False),
+    Column("period_start", Text, nullable=False),
     Column("period_end", Text, primary_key=False),
     Column("status", Text, nullable=False, default="pending"),
     Column("result_json", Text),
