@@ -61,12 +61,12 @@ async def init_db():
 
 
 async def create_request(
+    request_id: str,
     username: str,
     period_start: str,
     period_end: str,
 ) -> str:
     """Создать запрос → вернуть ID."""
-    request_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
 
     async with db_lock:
