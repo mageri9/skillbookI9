@@ -1,6 +1,6 @@
 
 .env
-
+data/
 commit_chronicle.json
 
 # Python
