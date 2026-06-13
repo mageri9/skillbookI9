@@ -21,13 +21,20 @@ async def analyze_github_user(ctx, username: str, period_start: str) -> dict:
     3. Запустить collector (в отдельном потоке)
     4. Сохранить результат / зафиксировать ошибку
     """
-    request_id = str(uuid.uuid4())
+    request_id = ctx["job_id"]
     period_end = datetime.now().strftime("%Y%m%d")
     cache_key = f"github:{username}:{period_start}"
 
     # 1. Кеш — до создания записи в БД
     cached = await cache_get(cache_key)
     if cached:
+        await create_request(
+            request_id=request_id,
+            username=username,
+            period_start=period_start,
+            period_end=period_end,
+        )
+        await update_request_status(request_id, "done", result_json=cached)
         return {
             "status": "done",
             "request_id": request_id,
