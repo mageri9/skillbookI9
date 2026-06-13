@@ -4,7 +4,7 @@ WAL-режим для конкурентного чтения/записи.
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 
 from sqlalchemy import (
@@ -156,3 +156,32 @@ async def set_cached_commits(
                     cached_at=now,
                 )
             )
+
+
+async def find_existing_requests(
+    username: str,
+    period_start: str,
+    period_end: str,
+    within_seconds: int = 3600,
+) -> dict | None:
+    """Найти существующий запрос (processing или done) за тот же период
+    в пределах within_seconds секунд.
+
+    Возвращает запись или None.
+    """
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(seconds=within_seconds)
+    ).isoformat()
+
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            requests.select().where(
+                requests.c.username == username,
+                requests.c.period_start == period_start,
+                requests.c.period_end == period_end,
+                requests.c.status.in_(["processing", "done"]),
+                requests.c.created_at >= cutoff,
+            )
+        )
+        row = result.first()
+        return dict(row._mapping) if row else None
