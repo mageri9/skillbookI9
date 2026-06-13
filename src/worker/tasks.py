@@ -13,16 +13,13 @@ from src.storage.database import (
     find_existing_requests,
 )
 from src.storage.cache import cache_get, cache_set
+from src.storage.pubsub import publish
+import json
 
 
 async def analyze_github_user(ctx, username: str, period_start: str) -> dict:
     """
-    Полный пайплайн анализа GitHub-пользователя.
-
-    1. Проверить кеш
-    2. Создать запись в БД
-    3. Запустить collector (в отдельном потоке)
-    4. Сохранить результат / зафиксировать ошибку
+    Пайплайн анализа GitHub-пользователя.
     """
     request_id = ctx["job_id"]
     period_end = datetime.now().strftime("%Y%m%d")
@@ -38,6 +35,18 @@ async def analyze_github_user(ctx, username: str, period_start: str) -> dict:
             period_end=period_end,
         )
         await update_request_status(request_id, "done", result_json=cached)
+
+        await publish(
+            "job:done",
+            json.dumps(
+                {
+                    "job_id": request_id,
+                    "status": "done",
+                    "username": username,
+                }
+            ),
+        )
+
         return {
             "status": "done",
             "request_id": request_id,
@@ -88,14 +97,38 @@ async def analyze_github_user(ctx, username: str, period_start: str) -> dict:
         await update_request_status(request_id, "done", result_json=result_json)
         await cache_set(cache_key, result_json, ttl=settings.cache_ttl_github)
 
+        await publish(
+            "job:done",
+            json.dumps(
+                {
+                    "job_id": request_id,
+                    "status": "done",
+                    "username": username,
+                }
+            ),
+        )
+
         return {
             "status": "done",
             "request_id": request_id,
-            "cached": False,
+            "source": "collector",
             "result_json": result_json,
         }
 
+    # 6. Ошибка — зафиксировать
     except Exception as e:
-        # 6. Ошибка — зафиксировать
         await update_request_status(request_id, "failed", error_message=str(e))
+
+        await publish(
+            "job:failed",
+            json.dumps(
+                {
+                    "job_id": request_id,
+                    "status": "failed",
+                    "username": username,
+                    "error": str(e),
+                }
+            ),
+        )
+
         raise
