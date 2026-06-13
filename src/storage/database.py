@@ -35,6 +35,7 @@ requests = Table(
     Column("status", Text, nullable=False, default="pending"),
     Column("result_json", Text),
     Column("error_message", Text),
+    Column("notified", Text, nullable=False, default="false"),
     Column("created_at", Text, nullable=False),
     Column("completed_at", Text),
 )
@@ -60,7 +61,7 @@ async def init_db() -> None:
         await conn.execute(
             text(
                 "CREATE INDEX IF NOT EXISTS idx_existing_request "
-                "ON requests (username, period_start, period_end, status, created_at)"
+                "ON requests (username, period_start, period_end, status, notified, created_at)"
             )
         )
 
@@ -97,7 +98,7 @@ async def update_request_status(
 ) -> None:
     """Обновить статус и опционально результат."""
     now = datetime.now(timezone.utc).isoformat()
-    values = {"status": status, "completed_at": now}
+    values = {"status": status, "completed_at": now, "notified": "false"}
     if result_json:
         values["result_json"] = result_json
     if error_message:
