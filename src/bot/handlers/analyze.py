@@ -49,6 +49,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             username.lower(),
             period,
             _job_id=job_id,
+            chat_id=str(update.effective_chat.id),
         )
         print(
             "MAPPING SAVED", job.job_id, await redis.exists(f"job_message:{job.job_id}")
