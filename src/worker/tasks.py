@@ -15,6 +15,7 @@ from src.storage.database import (
 from src.storage.cache import cache_get, cache_set
 from src.storage.pubsub import publish
 import json
+from src.models.models import AnalysisResult
 
 
 async def analyze_github_user(ctx, username: str, period_start: str) -> dict:
@@ -132,3 +133,26 @@ async def analyze_github_user(ctx, username: str, period_start: str) -> dict:
         )
 
         raise
+
+
+def format_summary(result: AnalysisResult) -> str:
+    """Собрать текстовую сводку из результатов анализа."""
+    total_commits = len(result.commits)
+    repos = sorted(set(c.repo for c in result.commits))
+
+    # Языки по расширениям файлов
+    languages: dict[str, int] = {}
+    for commit in result.commits:
+        for f in commit.files:
+            ext = f.filename.rsplit(".", 1)[-1] if "." in f.filename else "other"
+            languages[ext] = languages.get(ext, 0) + 1
+
+    top_langs = sorted(languages.items(), key=lambda x: x[1], reverse=True)[:5]
+    lang_line = ", ".join(f"{ext}({count})" for ext, count in top_langs)
+
+    return (
+        f"✅ Анализ готов\n"
+        f"📦 Коммитов: {total_commits}\n"
+        f"📁 Репозиториев: {len(repos)}\n"
+        f"🔤 Языки: {lang_line}"
+    )
