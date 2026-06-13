@@ -30,6 +30,7 @@ requests = Table(
     metadata,
     Column("id", Text, primary_key=True),
     Column("username", Text, primary_key=False),
+    Column("chat_id", Text, nullable=False, default=""),
     Column("period_start", Text, nullable=False),
     Column("period_end", Text, primary_key=False),
     Column("status", Text, nullable=False, default="pending"),
@@ -71,6 +72,7 @@ async def create_request(
     username: str,
     period_start: str,
     period_end: str,
+    chat_id: str = "",
 ) -> str:
     """Создать запрос → вернуть ID."""
     now = datetime.now(timezone.utc).isoformat()
@@ -81,6 +83,7 @@ async def create_request(
                 requests.insert().values(
                     id=request_id,
                     username=username,
+                    chat_id=chat_id,
                     period_start=period_start,
                     period_end=period_end,
                     status="pending",
