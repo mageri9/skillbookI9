@@ -52,11 +52,17 @@ commit_cache = Table(
 
 
 # ---------- API ----------
-async def init_db():
-    """Создать таблицы и включить WAL."""
+async def init_db() -> None:
+    """Создать таблицы, включить WAL, создать индексы."""
     async with engine.begin() as conn:
         await conn.execute(text("PRAGMA journal_mode=WAL"))
         await conn.run_sync(metadata.create_all)
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_existing_request "
+                "ON requests (username, period_start, period_end, status, created_at)"
+            )
+        )
 
 
 async def create_request(
