@@ -1,7 +1,7 @@
 """Обработчик /analyze @username [period]."""
 
 import uuid
-
+from datetime import datetime, timedelta
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -10,6 +10,15 @@ from src.storage.cache import get_redis
 from html import escape
 import re
 import json
+
+def validate_period(period: str) -> bool:
+    """Проверить формат даты и что период не старше 2 лет."""
+    try:
+        date = datetime.strptime(period, "%Y-%m-%d")
+        max_age = datetime.now() - timedelta(days=730)
+        return date >= max_age
+    except ValueError:
+        return False
 
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -22,7 +31,13 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not re.fullmatch(r"^[a-zA-Z0-9_-]+$", username):
         await update.message.reply_text("❌ Некорректный GitHub username")
         return
+
+    username = username.lower()
+
     period = context.args[1] if len(context.args) > 1 else "2024-01-01"
+    if not validate_period(period):
+        await update.message.reply_text("❌ Максимальный период анализа — 2 года (YYYY-MM-DD)")
+        return
 
     msg = await update.message.reply_text(
         f"🔄 Анализирую <b>{escape(username)}</b> с <b>{escape(period)}</b>...",
@@ -63,4 +78,4 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             parse_mode=ParseMode.HTML,
         )
     except Exception as e:
-        await msg.edit_text(f"❌ Ошибка: {e}")
+        await msg.edit_text(f"❌ Ошибка: {e}")o
