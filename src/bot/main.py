@@ -3,6 +3,7 @@
 from telegram.ext import CommandHandler
 from src.bot.app import create_app
 from src.bot.handlers.analyze import analyze_command
+from src.bot.handlers.status import status_handler
 
 
 async def start(update, context) -> None:
@@ -14,6 +15,7 @@ def main():
     app = create_app()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("status", status_handler))
     app.run_polling()
 
 
