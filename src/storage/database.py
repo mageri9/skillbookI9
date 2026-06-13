@@ -195,3 +195,29 @@ async def find_existing_requests(
         )
         row = result.first()
         return dict(row._mapping) if row else None
+
+
+async def recover_stuck_requests(timeout_minutes: int = 15) -> int:
+    """Пометить failed запросы, зависшие в processing дольше timeout.
+
+    Возвращает количество исправленных записей.
+    """
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
+    ).isoformat()
+
+    async with db_lock:
+        async with engine.begin() as conn:
+            result = await conn.execute(
+                requests.update()
+                .where(
+                    requests.c.status == "processing",
+                    requests.c.created_at < cutoff,
+                )
+                .values(
+                    status="failed",
+                    error_message="Worker crashed or timed out",
+                    completed_at=datetime.now(timezone.utc).isoformat(),
+                )
+            )
+            return result.rowcount
