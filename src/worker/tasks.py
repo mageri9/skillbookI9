@@ -148,7 +148,7 @@ def format_summary(result_json: str) -> str:
         repo_count = len(data["repos"])
     else:
         total_commits = len(data["commits"])
-        repo_count = len(set(c["repo"] for c in data["commits"])
+        repo_count = len(set(c["repo"] for c in data["commits"]))
 
 
 

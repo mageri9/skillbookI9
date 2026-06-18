@@ -19,10 +19,9 @@ DEFAULT_PERIOD = (datetime.now() - timedelta(days=MAX_ANALYSIS_DAYS)).strftime(
 
 
 def validate_period(period: str) -> bool:
-    """Проверить формат даты и что период не старше MAX_ANALYSIS_DAYS."""
     try:
-        date = datetime.strptime(period, "%Y-%m-%d")
-        max_age = datetime.now() - timedelta(days=MAX_ANALYSIS_DAYS)
+        date = datetime.strptime(period, "%Y-%m-%d").date()
+        max_age = (datetime.now() - timedelta(days=MAX_ANALYSIS_DAYS)).date()
         return date >= max_age
     except ValueError:
         return False

@@ -20,7 +20,8 @@ def benchmark() -> None:
     import asyncio
     from src.storage.database import engine, requests
 
-    async def run() -> None:
+    async def run():
+        print("Ищу записи...")
         async with engine.connect() as conn:
             result = await conn.execute(
                 requests.select()
@@ -31,11 +32,12 @@ def benchmark() -> None:
             row = result.first()
 
         if not row:
-            print("❌ Нет завершённых запросов в БД")
+            print("❌ Нет завершённых запросов")
             return
 
         record = dict(row._mapping)
         raw_json = record["result_json"]
+        print(f"Найдена запись: {record['id'][:8]}... ({len(raw_json)} байт)")
 
         old_size = len(raw_json)
 
@@ -72,5 +74,5 @@ def benchmark() -> None:
     asyncio.run(run())
 
 
-    if __name__ == "__main__":
-        benchmark()
+if __name__ == "__main__":
+    benchmark()
