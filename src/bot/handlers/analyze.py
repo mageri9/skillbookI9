@@ -12,11 +12,17 @@ import re
 import json
 
 
+MAX_ANALYSIS_DAYS = 730
+DEFAULT_PERIOD = (datetime.now() - timedelta(days=MAX_ANALYSIS_DAYS)).strftime(
+    "%Y-%m-%d"
+)
+
+
 def validate_period(period: str) -> bool:
-    """Проверить формат даты и что период не старше 2 лет."""
+    """Проверить формат даты и что период не старше MAX_ANALYSIS_DAYS."""
     try:
         date = datetime.strptime(period, "%Y-%m-%d")
-        max_age = datetime.now() - timedelta(days=730)
+        max_age = datetime.now() - timedelta(days=MAX_ANALYSIS_DAYS)
         return date >= max_age
     except ValueError:
         return False
@@ -35,7 +41,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     username = username.lower()
 
-    period = context.args[1] if len(context.args) > 1 else "2024-01-01"
+    period = context.args[1] if len(context.args) > 1 else DEFAULT_PERIOD
     if not validate_period(period):
         await update.message.reply_text(
             "❌ Максимальный период анализа — 2 года (YYYY-MM-DD)"
