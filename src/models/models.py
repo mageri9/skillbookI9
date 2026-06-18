@@ -32,3 +32,29 @@ class AnalysisResult(BaseModel):
     period: str
     commits: list[Commit]
     generated_at: datetime = datetime.now()
+
+
+class CompactFile(BaseModel):
+    p: str
+    plus: int | None = None
+    minus: int | None = None
+
+    @property
+    def add(self) -> int:
+        return self.plus or 0
+
+    @property
+    def delete(self) -> int:
+        return self.minus or 0
+
+
+class CompactCommit(BaseModel):
+    dt: str
+    msg: str
+    f: list[CompactFile] = []
+
+
+class CompactResult(BaseModel):
+    user: str
+    period: str
+    repos: dict[str, list[CompactCommit]]
