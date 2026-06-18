@@ -35,9 +35,11 @@ class AnalysisResult(BaseModel):
 
 
 class CompactFile(BaseModel):
-    p: str
-    plus: int | None = None
-    minus: int | None = None
+    model_config = {"populate_by_name": True}
+
+    p: str = Field(alias="path")
+    plus: int | None = Field(default=None, alias="+")
+    minus: int | None = Field(default=None, alias="-")
 
     @property
     def add(self) -> int:
@@ -58,3 +60,36 @@ class CompactResult(BaseModel):
     user: str
     period: str
     repos: dict[str, list[CompactCommit]]
+
+
+def to_compact(result: AnalysisResult) -> CompactResult:
+    repos: dict[str, list[CompactCommit]] = {}
+
+    for commit in result.commits:
+        repo_name = commit.repo.split("/")[-1]
+
+        if repo_name not in repos:
+            repos[repo_name] = []
+
+        files = []
+        for f in commit.files:
+            file_data = CompactFile(path=f.filename)
+            if f.additions:
+                file_data.plus = f.additions
+            if f.deletions:
+                file_data.minus = f.deletions
+            files.append(file_data)
+
+        repos[repo_name].append(
+            CompactCommit(
+                dt=commit.date.strftime("%Y-%m-%d"),
+                msg=commit.message.split("\n")[0][:200],
+                f=files,
+            )
+        )
+
+    return CompactResult(
+        user=result.username,
+        period=result.period,
+        repos=repos,
+    )
