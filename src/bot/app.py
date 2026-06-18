@@ -60,8 +60,7 @@ async def start_pubsub_listener(app: Application) -> None:
                 if not record or not record.get("result_json"):
                     continue
 
-                result = AnalysisResult.model_validate_json(record["result_json"])
-                summary = format_summary(result)
+                summary = format_summary(record["result_json"])
 
                 # Обновить сообщение
                 await app.bot.edit_message_text(
