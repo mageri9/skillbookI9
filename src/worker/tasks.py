@@ -12,7 +12,6 @@ from src.storage.database import (
     update_request_status,
     find_existing_requests,
 )
-from src.storage.cache import cache_get, cache_set
 from src.storage.pubsub import publish
 import json
 from src.models.models import serialize_result
@@ -26,39 +25,8 @@ async def analyze_github_user(
     """
     request_id = ctx["job_id"]
     period_end = datetime.now().strftime("%Y-%m-%d")
-    cache_key = f"github:{username}:{period_start}"
 
-    # 1. Redis cache — самый быстрый путь
-    cached = await cache_get(cache_key)
-    if cached:
-        await create_request(
-            request_id=request_id,
-            username=username,
-            period_start=period_start,
-            period_end=period_end,
-            chat_id=chat_id,
-        )
-        await update_request_status(request_id, "done", result_json=cached)
-
-        await publish(
-            "job:done",
-            json.dumps(
-                {
-                    "job_id": request_id,
-                    "status": "done",
-                    "username": username,
-                }
-            ),
-        )
-
-        return {
-            "status": "done",
-            "request_id": request_id,
-            "source": "cache",
-            "result_json": cached,
-        }
-
-    # 2. Existing request — уже анализировали или анализируем
+    # 1. Existing request — уже анализировали или анализируем
     existing = await find_existing_requests(username, period_start, period_end)
     if existing:
         if existing["status"] == "processing":
@@ -76,7 +44,7 @@ async def analyze_github_user(
                 "result_json": existing["result_json"],
             }
 
-    # 3. Новый запрос — создать и запустить collector
+    # 2. Новый запрос — создать и запустить collector
     await create_request(
         request_id=request_id,
         username=username,
@@ -86,7 +54,7 @@ async def analyze_github_user(
     )
     await update_request_status(request_id, "processing")
 
-    # 4. Запустить collector в отдельном потоке
+    # 3. Запустить collector в отдельном потоке
     try:
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
@@ -97,10 +65,9 @@ async def analyze_github_user(
             settings.max_workers,
         )
 
-        # 5. Успех — сохранить
+        # 4. Успех — сохранить
         result_json = serialize_result(result)
         await update_request_status(request_id, "done", result_json=result_json)
-        await cache_set(cache_key, result_json, ttl=settings.cache_ttl_github)
 
         await publish(
             "job:done",
@@ -149,8 +116,6 @@ def format_summary(result_json: str) -> str:
     else:
         total_commits = len(data["commits"])
         repo_count = len(set(c["repo"] for c in data["commits"]))
-
-
 
     return (
         f"✅ Анализ готов\n"
