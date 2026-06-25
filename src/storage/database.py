@@ -35,6 +35,7 @@ requests = Table(
     Column("period_end", Text, primary_key=False),
     Column("status", Text, nullable=False, default="pending"),
     Column("result_json", Text),
+    Column("fingerprint", Text),
     Column("error_message", Text),
     Column("notified", Text, nullable=False, default="false"),
     Column("created_at", Text, nullable=False),
@@ -97,6 +98,7 @@ async def update_request_status(
     request_id: str,
     status: str,
     result_json: str | None = None,
+    fingerprint: str | None = None,
     error_message: str | None = None,
 ) -> None:
     """Обновить статус и опционально результат."""
@@ -104,6 +106,8 @@ async def update_request_status(
     values = {"status": status, "completed_at": now, "notified": "false"}
     if result_json:
         values["result_json"] = result_json
+    if fingerprint:
+        values["fingerprint"] = fingerprint
     if error_message:
         values["error_message"] = error_message
 
