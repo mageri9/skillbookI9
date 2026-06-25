@@ -11,6 +11,9 @@ from src.storage.database import get_request
 from src.storage.pubsub import subscribe
 from src.storage.cache import get_redis
 from src.worker.tasks import format_summary
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 _arq_pool = None
 
@@ -46,7 +49,7 @@ async def start_pubsub_listener(app: Application) -> None:
                     break
                 await asyncio.sleep(0.1)
             if not mapping_raw:
-                print(f"⚠️ Mapping not found after retry: {key}")
+                logger.error(f"⚠️ Mapping not found after retry: {key}")
                 continue
 
             mapping = json.loads(mapping_raw)
@@ -88,7 +91,7 @@ async def start_pubsub_listener(app: Application) -> None:
             await redis.delete(f"job_message:{job_id}")
 
         except Exception as e:
-            print(f"⚠️ Listener error: {e}")  #  временно
+            logger.error(f"⚠️ Listener error: {e}")  #  временно
 
 
 async def catch_up_missed_events(app: Application) -> None:
