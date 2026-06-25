@@ -4,9 +4,12 @@
 
 import asyncio
 from datetime import datetime
+import hashlib
 
 from src.config import settings
 from src.core.collector import collect_commits
+from src.core.token_rotator import token_rotator
+from src.models import AnalysisResult
 from src.storage.database import (
     create_request,
     update_request_status,
@@ -148,3 +151,35 @@ def format_summary(result_json: str) -> str:
         f"📦 Коммитов: {total_commits}\n"
         f"📁 Репозиториев: {repo_count}\n"
     )
+
+
+def generate_fingerprint(result: AnalysisResult) -> str:
+    """SHA256-хеш от отсортированных repo:last_commit_sha."""
+    repos = {}
+    for commit in result.commits:
+        repo_name = commit.repo.split("/")[-1]
+        if repo_name not in repos:
+            repos[repo_name] = commit.hash
+
+    data = "".join(
+        sorted(f"{repo}:{len(list(commits))}" for repo, commits in repos.items())
+    )
+    return hashlib.sha256(data.encode()).hexdigest()[:16]
+
+
+async def get_github_fingerprint(username: str) -> str:
+    """Получить fingerprint из GitHub API: repo:pushed_at для всех репо."""
+    g = token_rotator.get_client()
+    repos_data = []
+
+    try:
+        user = g.get_user(username)
+        for repo in user.get_repos():
+            if not repo.fork:
+                pushed = repo.pushed_at.isoformat() if repo.pushed_at else "none"
+                repos_data.append(f"{repo.name}:{pushed}")
+    except Exception:
+        return ""
+
+    repos_data.sort()
+    return hashlib.sha256("".join(repos_data).encode()).hexdigest()[:16]
