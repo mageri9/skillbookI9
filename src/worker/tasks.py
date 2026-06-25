@@ -53,6 +53,7 @@ async def analyze_github_user(
                 request_id,
                 "done",
                 result_json=existing["result_json"],
+                fingerprint=existing.get("fingerprint"),
             )
 
             await publish(
@@ -96,7 +97,10 @@ async def analyze_github_user(
 
         # 4. Успех — сохранить
         result_json = serialize_result(result)
-        await update_request_status(request_id, "done", result_json=result_json)
+        fingerprint = generate_fingerprint(result)
+        await update_request_status(
+            request_id, "done", result_json=result_json, fingerprint=fingerprint
+        )
 
         await publish(
             "job:done",
