@@ -5,6 +5,10 @@
 
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from src.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 PLACEHOLDER_MARKER = "xxx"
 
@@ -70,7 +74,7 @@ class Settings(BaseSettings):
 try:
     settings = Settings()
 except Exception as e:
-    print(e)
+    logger.error(e)
     raise
 
 # Проверка при старте

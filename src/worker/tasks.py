@@ -15,7 +15,7 @@ from src.storage.database import (
 from src.storage.cache import cache_get, cache_set
 from src.storage.pubsub import publish
 import json
-from src.models.models import AnalysisResult, to_compact, serialize_result
+from src.models.models import serialize_result
 
 
 async def analyze_github_user(

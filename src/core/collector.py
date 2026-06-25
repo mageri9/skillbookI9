@@ -97,7 +97,7 @@ def collect_commits(
 
         remaining = rate_limit.resources.core.remaining
 
-        print(f"📡 API запросов осталось: {remaining}")
+        logger.info(f"📡 API запросов осталось: {remaining}")
 
         if remaining < 10:
             raise TokenExhaustedError(
@@ -106,7 +106,7 @@ def collect_commits(
     except TokenExhaustedError:
         raise
     except Exception as e:
-        print(f"⚠️ Не удалось проверить лимиты: {e}")
+        logger.error(f"⚠️ Не удалось проверить лимиты: {e}")
 
     user = g.get_user(username)
 
@@ -116,9 +116,11 @@ def collect_commits(
     active_repos = [r for r in all_repos if r.pushed_at and r.pushed_at >= since]
     skipped = len(all_repos) - len(active_repos)
 
-    print(f"📂 Всего репозиториев: {len(all_repos)}")
-    print(f"📂 Активных с {since_date}: {len(active_repos)} (пропущено: {skipped})")
-    print(f"⚡ Параллельных потоков: {max_workers}\n")
+    logger.info(f"📂 Всего репозиториев: {len(all_repos)}")
+    logger.info(
+        f"📂 Активных с {since_date}: {len(active_repos)} (пропущено: {skipped})"
+    )
+    logger.info(f"⚡ Параллельных потоков: {max_workers}\n")
 
     all_manifests = []
 
@@ -171,9 +173,9 @@ def main():
     if len(sys.argv) > 3:
         workers = int(sys.argv[3])
 
-    print(f"\n🚀 Commit Chronicle — сбор коммитов (FAST)")
-    print(f"👤 Пользователь: {username}")
-    print(f"📅 Период: с {since}\n")
+    logger.info(f"\n🚀 Commit Chronicle — сбор коммитов (FAST)")
+    logger.info(f"👤 Пользователь: {username}")
+    logger.info(f"📅 Период: с {since}\n")
 
     start_time = datetime.now()
     output_file = "commit_chronicle.json"
@@ -193,11 +195,11 @@ def main():
 
     elapsed = (datetime.now() - start_time).total_seconds()
 
-    print(f"\n{'=' * 50}")
-    print(f"✅ Сохранено в {output_file}")
-    print(f"📊 Репозиториев с коммитами: {repo_count}")
-    print(f"📊 Всего коммитов: {total_commits}")
-    print(f"⏱️ Время выполнения: {elapsed:.1f}s")
+    logger.info(f"\n{'=' * 50}")
+    logger.info(f"✅ Сохранено в {output_file}")
+    logger.info(f"📊 Репозиториев с коммитами: {repo_count}")
+    logger.info(f"📊 Всего коммитов: {total_commits}")
+    logger.info(f"⏱️ Время выполнения: {elapsed:.1f}s")
 
 
 if __name__ == "__main__":
