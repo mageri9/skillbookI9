@@ -37,6 +37,16 @@ async def analyze_github_user(
                 "result_json": None,
             }
         if existing["status"] == "done":
+            await publish(
+                "job:done",
+                json.dumps(
+                    {
+                        "job_id": request_id,
+                        "status": "done",
+                        "username": username,
+                    }
+                ),
+            )
             return {
                 "status": "done",
                 "request_id": existing["id"],
@@ -92,7 +102,7 @@ async def analyze_github_user(
         await update_request_status(request_id, "failed", error_message=str(e))
 
         await publish(
-            "job:failed",
+            "job:done",
             json.dumps(
                 {
                     "job_id": request_id,
