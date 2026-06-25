@@ -10,6 +10,9 @@ from src.storage.cache import get_redis
 from html import escape
 import re
 import json
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 MAX_ANALYSIS_DAYS = 730
@@ -74,7 +77,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             _job_id=job_id,
             chat_id=str(update.effective_chat.id),
         )
-        print(
+        logger.debug(
             "MAPPING SAVED", job.job_id, await redis.exists(f"job_message:{job.job_id}")
         )
 
