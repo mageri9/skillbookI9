@@ -4,7 +4,6 @@
 
 import asyncio
 from datetime import datetime
-import hashlib
 from src.logger import get_logger
 
 
@@ -20,6 +19,7 @@ from src.storage.database import (
 from src.storage.pubsub import publish
 import json
 from src.models.models import serialize_result
+from src.core.fingerprint import get_github_fingerprint
 
 
 logger = get_logger(__name__)
@@ -46,41 +46,39 @@ async def analyze_github_user(
             }
         # Дедуп
         if existing["status"] == "done":
-            current_fp = await get_github_fingerprint(username)
-            if current_fp and current_fp == existing.get("fingerprint"):
-                await create_request(
-                    request_id=request_id,
-                    username=username,
-                    period_start=period_start,
-                    period_end=period_end,
-                    chat_id=chat_id,
-                )
+            await create_request(
+                request_id=request_id,
+                username=username,
+                period_start=period_start,
+                period_end=period_end,
+                chat_id=chat_id,
+            )
 
-                await update_request_status(
-                    request_id,
-                    "done",
-                    result_json=existing["result_json"],
-                    fingerprint=existing.get("fingerprint"),
-                )
+            await update_request_status(
+                request_id,
+                "done",
+                result_json=existing["result_json"],
+                fingerprint=existing.get("fingerprint"),
+            )
 
-                await publish(
-                    "job:done",
-                    json.dumps(
-                        {
-                            "job_id": request_id,
-                            "status": "done",
-                            "username": username,
-                        }
-                    ),
-                )
+            await publish(
+                "job:done",
+                json.dumps(
+                    {
+                        "job_id": request_id,
+                        "status": "done",
+                        "username": username,
+                    }
+                ),
+            )
 
-                return {
-                    "status": "done",
-                    "request_id": request_id,
-                    "source": "dedup",
-                    "result_json": existing["result_json"],
-                }
-            logger.info("Данные устарели (fingerprint), пересобираем")
+            return {
+                "status": "done",
+                "request_id": request_id,
+                "source": "dedup",
+                "result_json": existing["result_json"],
+            }
+        logger.info("Данные устарели (fingerprint), пересобираем")
 
     # 2. Новый запрос — создать и запустить collector
     await create_request(
@@ -105,9 +103,18 @@ async def analyze_github_user(
 
         # 4. Успех — сохранить
         result_json = serialize_result(result)
-        fingerprint = generate_fingerprint(result)
+
+        fingerprint = await loop.run_in_executor(
+            None,
+            get_github_fingerprint,
+            username,
+        )
+
         await update_request_status(
-            request_id, "done", result_json=result_json, fingerprint=fingerprint
+            request_id,
+            "done",
+            result_json=result_json,
+            fingerprint=fingerprint,
         )
 
         await publish(
@@ -163,35 +170,3 @@ def format_summary(result_json: str) -> str:
         f"📦 Коммитов: {total_commits}\n"
         f"📁 Репозиториев: {repo_count}\n"
     )
-
-
-def generate_fingerprint(result: AnalysisResult) -> str:
-    """SHA256-хеш от отсортированных repo:last_commit_sha."""
-    repos = {}
-    for commit in result.commits:
-        repo_name = commit.repo.split("/")[-1]
-        if repo_name not in repos:
-            repos[repo_name] = commit.hash
-
-    data = "".join(
-        sorted(f"{repo}:{len(list(commits))}" for repo, commits in repos.items())
-    )
-    return hashlib.sha256(data.encode()).hexdigest()[:16]
-
-
-async def get_github_fingerprint(username: str) -> str:
-    """Получить fingerprint из GitHub API: repo:pushed_at для всех репо."""
-    g = token_rotator.get_client()
-    repos_data = []
-
-    try:
-        user = g.get_user(username)
-        for repo in user.get_repos():
-            if not repo.fork:
-                pushed = repo.pushed_at.isoformat() if repo.pushed_at else "none"
-                repos_data.append(f"{repo.name}:{pushed}")
-    except Exception:
-        return ""
-
-    repos_data.sort()
-    return hashlib.sha256("".join(repos_data).encode()).hexdigest()[:16]
