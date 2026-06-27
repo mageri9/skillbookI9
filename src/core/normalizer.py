@@ -36,7 +36,7 @@ def normalize(raw_data: list[dict], username: str) -> AnalysisResult:
 
     return AnalysisResult(
         username=username,
-        period=period,
+        period_start=period,
         commits=all_commits,
         generated_at=datetime.now(),
     )
