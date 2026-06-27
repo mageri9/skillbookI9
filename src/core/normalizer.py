@@ -4,17 +4,15 @@ from datetime import datetime
 from src.models.models import AnalysisResult, Commit, FileChange
 
 
-def normalize(raw_data: list[dict], username: str) -> AnalysisResult:
+def normalize(raw_data: list[dict], username: str, period_start: str) -> AnalysisResult:
     """
     raw_data: список словарей от process_single_repo
     username: GitHub-логин
     возвращает: валидированный AnalysisResult
     """
     all_commits: list[Commit] = []
-    period = ""
 
     for repo_data in raw_data:
-        period = repo_data.get("period", "")
         repo_name = repo_data.get("repo", "")
 
         for c in repo_data.get("commits", []):
@@ -36,7 +34,7 @@ def normalize(raw_data: list[dict], username: str) -> AnalysisResult:
 
     return AnalysisResult(
         username=username,
-        period_start=period,
+        period_start=period_start,
         commits=all_commits,
         generated_at=datetime.now(),
     )

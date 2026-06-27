@@ -158,7 +158,7 @@ def collect_commits(
                 logger.warning(f"⚠️ Ошибка: {e}")
                 continue
 
-    return normalize(all_manifests, username)
+    return normalize(all_manifests, username, since_date)
 
 
 def main():
