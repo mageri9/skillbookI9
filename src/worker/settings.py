@@ -5,7 +5,8 @@
 from src.worker.tasks import analyze_github_user
 from src.storage.database import init_db, recover_stuck_requests
 from arq.connections import RedisSettings
-from src.logger import setup_logging, get_logger
+from src.logger import get_logger
+from src.config import settings
 
 
 logger = get_logger(__name__)
@@ -14,11 +15,7 @@ logger = get_logger(__name__)
 class WorkerSettings:
     functions = [analyze_github_user]
 
-    redis_settings = RedisSettings(
-        host="localhost",
-        port=6379,
-        database=0,
-    )
+    redis_settings = settings.redis_url
 
     max_jobs = 3
     job_timeout = 300
