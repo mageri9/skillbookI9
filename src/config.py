@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # Storage
     database_url: str = "sqlite+aiosqlite:///data/app.db"
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str
 
     # Limits
     max_workers: int = 10
@@ -69,13 +69,6 @@ class Settings(BaseSettings):
             self.openai_api_key,
         ]
         return not any(PLACEHOLDER_MARKER in key for key in critical_keys)
-
-    @property
-    def effective_redis_url(self) -> str:
-        """В Docker: redis://redis:6379, локально: redis://localhost:6379."""
-        if os.environ.get("DOCKER_ENV"):
-            return "redis://redis:6379/0"
-        return self.redis_url
 
 
 # Глобальный экземпляр
