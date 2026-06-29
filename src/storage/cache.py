@@ -1,24 +1,9 @@
-"""Минимальный кеш на Redis. Две функции."""
+"""Кеш на Redis — get/set с TTL."""
 
-import redis.asyncio as aioredis
-from src.config import settings
+from src.logger import get_logger
+from src.storage.redis import get_redis
 
-import logging
-
-logger = logging.getLogger(__name__)
-
-_redis: aioredis.Redis | None = None
-
-
-async def get_redis() -> aioredis.Redis:
-    """Ленивое подключение — создаётся при первом использовании."""
-    global _redis
-    if _redis is None:
-        _redis = aioredis.from_url(
-            settings.redis_url,
-            decode_responses=True,
-        )
-    return _redis
+logger = get_logger(__name__)
 
 
 async def cache_get(key: str) -> str | None:
@@ -27,7 +12,7 @@ async def cache_get(key: str) -> str | None:
         r = await get_redis()
         return await r.get(key)
     except Exception as e:
-        logger.warning("Redis GET failed: %s", e)
+        logger.warning(f"cache_get({key!r}) failed: {e}")
         return None
 
 
@@ -37,5 +22,4 @@ async def cache_set(key: str, value: str, ttl: int = 3600) -> None:
         r = await get_redis()
         await r.set(key, value, ex=ttl)
     except Exception as e:
-        logger.warning("Redis GET failed: %s", e)
-        pass
+        logger.warning(f"cache_set({key!r}) failed: {e}")

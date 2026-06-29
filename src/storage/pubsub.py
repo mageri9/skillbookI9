@@ -1,38 +1,11 @@
 """Redis pub/sub — publish и subscribe."""
 
-import redis.asyncio as aioredis
 from redis.asyncio.client import PubSub
 
-from src.config import settings
 from src.logger import get_logger
+from src.storage.redis import get_redis
 
 logger = get_logger(__name__)
-
-_client: aioredis.Redis | None = None
-
-
-def _make_client() -> aioredis.Redis:
-    return aioredis.from_url(
-        settings.redis_url,
-        decode_responses=True,
-        retry_on_timeout=True,  # переподключается при обрыве
-        socket_keepalive=True,  # держит соединение живым при простое
-    )
-
-
-async def get_client() -> aioredis.Redis:
-    """Ленивое подключение. Один клиент на процесс."""
-    global _client
-    _client = _client or _make_client()
-    return _client
-
-
-async def close() -> None:
-    """Закрыть клиент при graceful shutdown."""
-    global _client
-    if _client is not None:
-        await _client.aclose()
-        _client = None
 
 
 async def publish(channel: str, message: str) -> None:
@@ -41,7 +14,7 @@ async def publish(channel: str, message: str) -> None:
     Пробрасывает исключение наружу — вызывающий код (tasks.py)
     решает как реагировать на недоступность Redis.
     """
-    client = await get_client()
+    client = await get_redis()
     try:
         await client.publish(channel, message)
         logger.debug(f"publish → {channel!r}: {message!r}")
@@ -53,11 +26,15 @@ async def publish(channel: str, message: str) -> None:
 async def subscribe(channel: str):
     """Подписаться на канал. Async generator — отдаёт данные сообщений.
 
+    Использует отдельный pubsub-объект поверх общего клиента —
+    SUBSCRIBE блокирует соединение на listen, поэтому pubsub
+    работает на выделенном соединении из пула, не мешая GET/SET/PUBLISH.
+
     Гарантирует unsubscribe + aclose при любом выходе (break / исключение).
     При ошибке во время listen — пробрасывает исключение наружу,
     чтобы bot listener мог применить retry-логику.
     """
-    client = await get_client()
+    client = await get_redis()
     pubsub: PubSub = client.pubsub()
     await pubsub.subscribe(channel)
     logger.debug(f"subscribe → {channel!r}")

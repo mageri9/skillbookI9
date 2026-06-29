@@ -9,7 +9,7 @@ from arq.connections import RedisSettings
 from src.config import settings
 from src.storage.database import get_request
 from src.storage.pubsub import subscribe
-from src.storage.cache import get_redis
+from src.storage.redis import get_redis
 from src.worker.tasks import format_summary
 from src.logger import get_logger
 

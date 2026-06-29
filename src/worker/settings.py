@@ -31,4 +31,5 @@ class WorkerSettings:
 
     @staticmethod
     async def on_shutdown(ctx):
-        pass
+        from src.storage.redis import close_redis
+        await close_redis()
