@@ -3,7 +3,6 @@
 Крашится при запуске если нет обязательных переменных.
 """
 
-import os
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from src.logger import get_logger
@@ -29,8 +28,9 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str
 
-    # LLM
-    openai_api_key: str
+    # LLM — опциональный пока функция не реализована;
+    # TODO: сделать обязательным когда появится LLM-слой
+    openai_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
 
     # Storage
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     @property
     def all_github_tokens(self) -> list[str]:
-        """Все токены GitHub одним списком"""
+        """Все токены GitHub одним списком."""
         tokens = [self.github_token]
         if self.github_extra_tokens:
             tokens.extend(
@@ -62,11 +62,11 @@ class Settings(BaseSettings):
 
     @property
     def is_configured(self) -> bool:
-        """Быстрая проверка, что ключи не из .example"""
+        """Быстрая проверка, что ключи не из .example."""
+        # openai_api_key не проверяем — опциональный до реализации LLM
         critical_keys = [
             self.github_token,
             self.telegram_bot_token,
-            self.openai_api_key,
         ]
         return not any(PLACEHOLDER_MARKER in key for key in critical_keys)
 
