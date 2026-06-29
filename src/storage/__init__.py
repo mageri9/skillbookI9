@@ -9,7 +9,15 @@ from src.storage.database import (
     set_user_binding,
     remove_user_binding,
 )
-from src.storage.cache import cache_get, cache_set
+from src.storage.cache import (
+    cache_get,
+    cache_set,
+    acquire_job_lock,
+    release_job_lock,
+    check_and_increment_daily_limit,
+    check_cooldown,
+    set_cooldown,
+)
 
 
 __all__ = [
@@ -22,4 +30,9 @@ __all__ = [
     "get_user_binding",
     "set_user_binding",
     "remove_user_binding",
+    "acquire_job_lock",
+    "release_job_lock",
+    "check_and_increment_daily_limit",
+    "check_cooldown",
+    "set_cooldown",
 ]
