@@ -14,6 +14,7 @@ from src.logger import get_logger
 from src.storage.database import get_request, get_unnotified_requests, mark_as_notified
 from src.storage.pubsub import subscribe
 from src.storage.redis import get_redis
+from src.storage.cache import release_job_lock
 from src.worker.tasks import format_summary
 
 logger = get_logger(__name__)
@@ -143,6 +144,7 @@ async def start_pubsub_listener(app: Application) -> None:
             )
 
             await mark_as_notified(job_id)
+            await release_job_lock(str(chat_id), job_id)  # Сняли лок
             await redis.delete(f"job_message:{job_id}")
 
         except Exception as e:
@@ -194,6 +196,7 @@ async def catch_up_missed_events(app: Application) -> None:
             continue
 
         await mark_as_notified(job_id)
+        await release_job_lock(str(chat_id), job_id)  # Сняли лок
         await redis.delete(f"job_message:{job_id}")
 
 
