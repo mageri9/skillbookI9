@@ -70,6 +70,14 @@ commit_cache = Table(
     Column("cached_at", Text, nullable=False),
 )
 
+user_bindings = Table(
+    "user_bindings",
+    metadata,
+    Column("telegram_id", Text, primary_key=True),
+    Column("github_username", Text, nullable=False),
+    Column("linked_at", Text, nullable=False),
+)
+
 
 # ---------- Инициализация ----------
 async def init_db() -> None:
@@ -285,7 +293,46 @@ async def mark_as_notified(request_id: str) -> None:
     """Пометить запрос как уведомлённый."""
     async with engine.begin() as conn:
         await conn.execute(
-            requests.update()
-            .where(requests.c.id == request_id)
-            .values(notified=True)
+            requests.update().where(requests.c.id == request_id).values(notified=True)
         )
+
+
+async def get_user_binding(telegram_id: str) -> str | None:
+    """Получить привязанный GitHub-юзернейм для Telegram ID."""
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            user_bindings.select().where(user_bindings.c.telegram_id == telegram_id)
+        )
+        row = result.first()
+        return row.github_username if row else None
+
+
+async def set_user_binding(telegram_id: str, github_username: str) -> None:
+    """Привязать или обновить GitHub-юзернейм для Telegram ID (upsert)."""
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with engine.begin() as conn:
+        await conn.execute(
+            sqlite_insert(user_bindings)
+            .values(
+                telegram_id=telegram_id,
+                github_username=github_username,
+                linked_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=["telegram_id"],
+                set_={"github_username": github_username, "linked_at": now},
+            )
+        )
+
+
+async def remove_user_binding(telegram_id: str) -> bool:
+    """Удалить привязку GitHub-юзернейма.
+
+        Возвращает True, если привязка была найдена и удалена.
+    """
+    async with engine.begin() as conn:
+        result = await conn.execute(
+            user_bindings.delete().where(user_bindings.c.telegram_id == telegram_id)
+        )
+        return result.rowcount > 0
