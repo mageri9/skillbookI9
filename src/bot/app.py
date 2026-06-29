@@ -1,31 +1,104 @@
 """Фабрика Telegram-приложения."""
 
 import asyncio
-import json
 import io
-from telegram.ext import Application
+import json
+
 from arq import create_pool
 from arq.connections import RedisSettings
+from telegram import Bot
+from telegram.ext import Application
+
 from src.config import settings
-from src.storage.database import get_request
+from src.logger import get_logger
+from src.storage.database import get_request, get_unnotified_requests, mark_as_notified
 from src.storage.pubsub import subscribe
 from src.storage.redis import get_redis
 from src.worker.tasks import format_summary
-from src.logger import get_logger
 
 logger = get_logger(__name__)
 
 _arq_pool = None
 
+# Сколько раз и с каким интервалом ждать маппинг job_message:{job_id} в Redis.
+# Маппинг пишется ботом до enqueue — в норме он уже есть. Retry нужен
+# на случай гонки между publish(worker) и set(bot) при очень быстром завершении.
+_MAPPING_RETRY_COUNT = 10
+_MAPPING_RETRY_INTERVAL = 0.1  # секунд
+
 
 async def get_arq_pool():
     """Ленивое подключение к Redis для arq."""
     global _arq_pool
-
     if _arq_pool is None:
         _arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
-
     return _arq_pool
+
+
+# ---------------------------------------------------------------------------
+# Общая логика уведомления
+# ---------------------------------------------------------------------------
+
+
+async def _notify_user(
+    bot: Bot,
+    job_id: str,
+    status: str,
+    chat_id: str,
+    message_id: int,
+    username: str,
+    result_json: str | None = None,
+    error: str | None = None,
+) -> None:
+    """
+    Отправить итоговое уведомление пользователю.
+
+    Единая точка для start_pubsub_listener и catch_up_missed_events —
+    любое изменение формата уведомления делается здесь один раз.
+    """
+    if status == "done" and result_json:
+        summary = format_summary(result_json)
+
+        await bot.edit_message_text(
+            summary,
+            chat_id=chat_id,
+            message_id=message_id,
+        )
+
+        json_bytes = io.BytesIO(result_json.encode("utf-8"))
+        json_bytes.name = f"{username}_analysis.json"
+        await bot.send_document(chat_id=chat_id, document=json_bytes)
+
+    elif status == "failed":
+        await bot.edit_message_text(
+            f"❌ Ошибка анализа: {error or 'неизвестная ошибка'}",
+            chat_id=chat_id,
+            message_id=message_id,
+        )
+
+
+async def _get_mapping(redis, job_id: str) -> dict | None:
+    """
+    Достать маппинг job_message:{job_id} из Redis с retry.
+
+    Маппинг пишется ботом до enqueue — в норме уже есть к моменту
+    получения pub/sub события. Retry защищает от гонки при очень
+    быстром завершении задачи.
+    """
+    key = f"job_message:{job_id}"
+    for _ in range(_MAPPING_RETRY_COUNT):
+        raw = await redis.get(key)
+        if raw:
+            return json.loads(raw)
+        await asyncio.sleep(_MAPPING_RETRY_INTERVAL)
+
+    logger.error(f"Mapping not found after {_MAPPING_RETRY_COUNT} retries: {key}")
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Pub/Sub listener
+# ---------------------------------------------------------------------------
 
 
 async def start_pubsub_listener(app: Application) -> None:
@@ -38,122 +111,95 @@ async def start_pubsub_listener(app: Application) -> None:
             job_id = data["job_id"]
             status = data["status"]
 
-            # Найти маппинг в Redis
-            key = f"job_message:{job_id}"
-
-            mapping_raw = None
-
-            for _ in range(10):
-                mapping_raw = await redis.get(key)
-                if mapping_raw:
-                    break
-                await asyncio.sleep(0.1)
-            if not mapping_raw:
-                logger.error(f"⚠️ Mapping not found after retry: {key}")
+            mapping = await _get_mapping(redis, job_id)
+            if not mapping:
                 continue
 
-            mapping = json.loads(mapping_raw)
             chat_id = mapping["chat_id"]
             message_id = mapping["message_id"]
+            username = mapping["username"]
+
+            result_json: str | None = None
+            error: str | None = None
 
             if status == "done":
-                # Достать полный результат из БД
                 record = await get_request(job_id)
                 if not record or not record.get("result_json"):
+                    logger.error(f"[{job_id}] result_json отсутствует в БД")
                     continue
-
-                summary = format_summary(record["result_json"])
-
-                # Обновить сообщение
-                await app.bot.edit_message_text(
-                    summary,
-                    chat_id=chat_id,
-                    message_id=message_id,
-                )
-
-                # Отправить JSON-файл
-                json_bytes = io.BytesIO(record["result_json"].encode("utf-8"))
-                json_bytes.name = f"{mapping['username']}_analysis.json"
-                await app.bot.send_document(
-                    chat_id=chat_id,
-                    document=json_bytes,
-                )
-
+                result_json = record["result_json"]
             elif status == "failed":
                 error = data.get("error", "неизвестная ошибка")
-                await app.bot.edit_message_text(
-                    f"❌ Ошибка анализа: {error}",
-                    chat_id=chat_id,
-                    message_id=message_id,
-                )
 
-            # Удалить маппинг после обработки
+            await _notify_user(
+                bot=app.bot,
+                job_id=job_id,
+                status=status,
+                chat_id=chat_id,
+                message_id=message_id,
+                username=username,
+                result_json=result_json,
+                error=error,
+            )
+
+            await mark_as_notified(job_id)
             await redis.delete(f"job_message:{job_id}")
 
         except Exception as e:
-            logger.error(f"⚠️ Listener error: {e}")  #  временно
+            logger.exception(f"Listener error on event {event_json!r}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Catch-up при старте
+# ---------------------------------------------------------------------------
 
 
 async def catch_up_missed_events(app: Application) -> None:
     """При старте бота: найти завершённые, но не отправленные уведомления."""
-    from src.storage.database import engine, requests
-    from sqlalchemy import select, and_
-
     redis = await get_redis()
+    rows = await get_unnotified_requests()
 
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            requests.select().where(
-                and_(
-                    requests.c.status.in_(["done", "failed"]),
-                    requests.c.notified == "false",
-                )
-            )
-        )
-        rows = result.fetchall()
+    if not rows:
+        return
+
+    logger.info(f"catch_up: найдено {len(rows)} неотправленных уведомлений")
 
     for row in rows:
-        row_dict = dict(row._mapping)
-        job_id = row_dict["id"]
+        job_id = row["id"]
 
-        # Найти маппинг в Redis
-        mapping_raw = await redis.get(f"job_message:{job_id}")
-        if not mapping_raw:
+        mapping = await _get_mapping(redis, job_id)
+        if not mapping:
+            # Маппинг протух в Redis (TTL) — уведомить уже некуда,
+            # но помечаем notified чтобы не проверять повторно при следующем старте
+            await mark_as_notified(job_id)
             continue
 
-        mapping = json.loads(mapping_raw)
         chat_id = mapping["chat_id"]
         message_id = mapping["message_id"]
+        username = mapping["username"]
 
-        if row_dict["status"] == "done" and row_dict.get("result_json"):
-            summary = format_summary(row_dict["result_json"])
-
-            await app.bot.edit_message_text(
-                summary, chat_id=chat_id, message_id=message_id
+        try:
+            await _notify_user(
+                bot=app.bot,
+                job_id=job_id,
+                status=row["status"],
+                chat_id=chat_id,
+                message_id=message_id,
+                username=username,
+                result_json=row.get("result_json"),
+                error=row.get("error_message"),
             )
+        except Exception as e:
+            logger.exception(f"[{job_id}] catch_up notify failed: {e}")
+            continue
 
-            json_bytes = io.BytesIO(row_dict["result_json"].encode("utf-8"))
-            json_bytes.name = f"{mapping['username']}_analysis.json"
-            await app.bot.send_document(chat_id=chat_id, document=json_bytes)
-
-        elif row_dict["status"] == "failed":
-            error = row_dict.get("error_message", "неизвестная ошибка")
-            await app.bot.edit_message_text(
-                f"❌ {error}", chat_id=chat_id, message_id=message_id
-            )
-
-        # Пометить как отправленное
-        from src.storage.database import db_lock
-
-        async with db_lock:
-            async with engine.begin() as conn:
-                await conn.execute(
-                    requests.update()
-                    .where(requests.c.id == job_id)
-                    .values(notified="true")
-                )
-
+        await mark_as_notified(job_id)
         await redis.delete(f"job_message:{job_id}")
+
+
+# ---------------------------------------------------------------------------
+# Фабрика
+# ---------------------------------------------------------------------------
 
 
 def create_app() -> Application:

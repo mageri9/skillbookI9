@@ -264,3 +264,28 @@ async def recover_stuck_requests(timeout_minutes: int = 15) -> int:
             )
         )
         return result.rowcount
+
+
+async def get_unnotified_requests() -> list[dict]:
+    """Вернуть завершённые (done / failed) запросы, уведомление по которым ещё не отправлено.
+
+    Используется при старте бота для отправки пропущенных уведомлений (catch_up).
+    """
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            requests.select().where(
+                requests.c.status.in_(["done", "failed"]),
+                requests.c.notified == False,  # noqa: E712 — SQLAlchemy требует ==, не `is`
+            )
+        )
+        return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def mark_as_notified(request_id: str) -> None:
+    """Пометить запрос как уведомлённый."""
+    async with engine.begin() as conn:
+        await conn.execute(
+            requests.update()
+            .where(requests.c.id == request_id)
+            .values(notified=True)
+        )
